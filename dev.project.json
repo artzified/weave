@@ -1,0 +1,11 @@
+{
+  "name": "celeris-dev",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Celeris": {
+        "$path": "src"
+      }
+    }
+  }
+}

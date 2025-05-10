@@ -1,0 +1,7 @@
+{
+  "name": "celeris",
+  "tree": {
+    "$className": "DataModel",
+    "$path": "src"
+  }
+}
