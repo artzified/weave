@@ -1,64 +1,64 @@
 --!native
 --!optimize 2
-local SharedTableRegistry = game:GetService("SharedTableRegistry")
 local Celeris = {}
+local Utils = require(script.utils)
 
+local b, e = Utils.profiling()
+
+local create = table.create
 local insert = table.insert
 
+--[[
+	Binds to the specified instruction name
+]]
 function Celeris.ListenToInstruction(
 	actor: Actor,
 	name: string,
 	callback: (id: number, localMemory: { any }?, ...any) -> any
 )
-	local st, stId
 	local localMemory
+	local bindable
+	local function bindableFire(...)
+		bindable:Fire(...)
+	end
 
 	actor:BindToMessageParallel(`{name}-localmemory`, function(_localMemory)
 		localMemory = _localMemory
 	end)
 
+	actor:BindToMessageParallel(`{name}-bindable`, function(_bindable: BindableEvent)
+		bindable = _bindable
+	end)
+
 	actor:BindToMessageParallel(
 		name,
 		function(
-			instId: string,
 			startIndex: number,
 			threadCount: number,
 			batchSize: number,
-			bindable: BindableEvent,
 			...
 		)
-			debug.profilebegin(`run instruction {name}`)
+			b(`run instruction {name}`)
 
-			-- Cache invalidation
-			if not st or stId ~= instId then
-				debug.profilebegin("get shared table")
-
-				st = SharedTableRegistry:GetSharedTable(`clrs-{instId}`)
-				stId = instId
-
-				debug.profileend()
-			end
-
-			debug.profilebegin("instruction callbacks")
-			local responses = table.create(batchSize)
+			b("instruction callbacks")
+			local responses = create(batchSize)
 			for i = startIndex, math.min(startIndex + (batchSize - 1), threadCount) do
 				local res = callback(i, localMemory, ...)
 				insert(responses, if res == nil then true else res)
 			end
-			debug.profileend()
+			e()
 
-			debug.profilebegin("send result")
+			b("send result")
 
-			st[startIndex // batchSize] = responses
+			bindableFire(startIndex, responses)
 
-			bindable:Fire()
-
-			debug.profileend()
-			debug.profileend()
+			e()
+			e()
 		end
 	)
 end
 
 Celeris.Coordinator = require(script.coordinator)
+Celeris.Pipeline = require(script.pipeline)
 
 return Celeris

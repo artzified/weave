@@ -1,9 +1,16 @@
-local SharedTableRegistry = game:GetService("SharedTableRegistry")
+--!native
+--!optimize 2
+local Instruction = require(script.Parent.instruction)
+local Utils = require(script.Parent.utils)
+
+local b, e = Utils.profiling()
 
 local Static = {}
 local Coordinator = {}
 
 local InstructionId = 0
+
+export type Instruction = Instruction.Instruction
 
 function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?)
 	local actors = {}
@@ -21,29 +28,30 @@ function Static.new(worker: Script & LocalScript, actorCount: number, actorStora
 
 	return setmetatable({
 		actors = actors,
+		registeredInstructions = {}
 	}, { __index = Coordinator })
 end
 
+--[[
+	Creates a new instruction object. An instruction may have the same name under different coordinators without collisions, but not under the same coordinator
+]]
 function Coordinator.CreateInstruction(self: Coordinator, name: string, localMemory: {any}?)
-	if localMemory then
-		self:SetInstructionLocalMemory(name, localMemory)
+	local existingInstruction = self.registeredInstructions[name]
+	if existingInstruction then
+		warn(`Instruction "{name}" already exists under this coordinator`)
+		return existingInstruction
 	end
+	
+	local instruction = Instruction.new(self :: never, name, localMemory)
 
-	return {
-		name = name,
-		bindable = Instance.new("BindableEvent"),
-	}
+	self.registeredInstructions[name] = instruction
+
+	return instruction
 end
 
-function Coordinator.SetInstructionLocalMemory(self: Coordinator, name: string, localMemory: { any })
-	for _, actor in self.actors do
-		actor:SendMessage(`{name}-localmemory`, localMemory)
-	end
-end
-
-type Instruction = typeof(Coordinator.CreateInstruction(...))
-
-@native
+--[[
+	Immediately asynchronously dispatches the instruction to the actors, may cause **frame drops** if used heavily
+]]
 function Coordinator.DispatchImmediate(
 	self: Coordinator,
 	instruction: Instruction,
@@ -56,24 +64,19 @@ function Coordinator.DispatchImmediate(
 	local _batchSize = batchSize or math.max(threadCount // #self.actors, 1)
 
 	local size = threadCount // _batchSize
-	local data = SharedTable.new(table.create(size, 0))
-
-	local currentInstId = InstructionId
-	local stId = `clrs-{currentInstId}`
-	SharedTableRegistry:SetSharedTable(stId, data)
+	local data = table.create(size)
 
 	local count = 0
 	local connection
-	connection = instruction.bindable.Event:Connect(function()
+	connection = instruction.bindable.Event:Connect(function(index: number, responses: {{any}})
 		count += 1
 
-		if count == threadCount // _batchSize then
+		data[(index-1) // _batchSize + 1] = responses
+
+		if count == size then
 			connection:Disconnect()
-			SharedTableRegistry:SetSharedTable(stId, nil)
 
-			print(data)
-
-			debug.profilebegin('flatten data')
+			b('flatten data')
 
 			local flat = table.create(threadCount)
 			for batchId, batch in data do
@@ -82,7 +85,7 @@ function Coordinator.DispatchImmediate(
 				end
 			end
 
-			debug.profileend()
+			e()
 
 			if callback then
 				callback(flat)
@@ -90,23 +93,24 @@ function Coordinator.DispatchImmediate(
 		end
 	end)
 
-	debug.profilebegin('dispatch actors')
+	b('dispatch actors')
 	local actorIndex = 1
 	for i = 1, threadCount, _batchSize do
 		self.actors[actorIndex]:SendMessage(
 			instruction.name,
-			currentInstId,
 			i,
 			threadCount,
 			_batchSize,
-			instruction.bindable,
 			...
 		)
 		actorIndex = (actorIndex % #self.actors) + 1
 	end
-	debug.profileend()
+	e()
 end
 
+--[[
+	A deferred proxy to `:DispatchImmediate`. Recommended for intensive rapid tasks to avoid frame drops
+]]
 function Coordinator.DispatchDeferred(
 	self: Coordinator,
 	instruction: Instruction,
@@ -118,6 +122,29 @@ function Coordinator.DispatchDeferred(
 	task.defer(self.DispatchImmediate, self, instruction, threadCount, callback, batchSize, ...)
 end
 
-type Coordinator = typeof(Static.new(...))
+--[[
+	**(ONLY)** Disposes all the actors for cleanup purposes. Each actor will be sent a **`$onDestroy`** message, subsequently deferring the destroying of the actor
+]]
+function Coordinator.Dispose(
+	self: Coordinator
+)
+	for _, actor in self.actors do
+		actor:SendMessage('$onDestroy')
+		task.defer(actor.Destroy, actor)
+	end
+end
+
+--[[
+	Disposes all the actors and destroys the coordinator. Proxied to use `:Dispose`
+]]
+function Coordinator.Destroy(	
+	self: Coordinator
+)
+	self:Dispose()
+
+	table.clear(self :: never) 	-- type checker wont shut up
+end
+
+export type Coordinator = typeof(Static.new(...))
 
 return Static
