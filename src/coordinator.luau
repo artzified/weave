@@ -9,8 +9,6 @@ local b, e = utils.profiling()
 local Static = {}
 local Coordinator = {}
 
-local instructionId = 0
-
 export type Instruction = instruction.Instruction
 
 function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?, populateCallback: ((Actor) -> ())?)
@@ -51,7 +49,6 @@ function Coordinator.DispatchImmediate(
 	batchSize: number?,
 	...
 )
-	instructionId += 1
 	local _batchSize = batchSize or math.max(threadCount // #self.pool.actors, 1)
 
 	local size = (threadCount + _batchSize - 1) // _batchSize
