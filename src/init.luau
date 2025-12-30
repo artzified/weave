@@ -3,62 +3,55 @@
 local Celeris = {}
 local Utils = require(script.utils)
 
-local b, e = Utils.profiling()
+local b: (string) -> (), e = Utils.profiling()
 
 local create = table.create
-local insert = table.insert
+local clear = table.clear
+local min = math.min
 
---[[
+--[[ 
 	Binds to the specified instruction name
 ]]
 function Celeris.ListenToInstruction(
 	actor: Actor,
 	name: string,
-	callback: (id: number, localMemory: { any }?, ...any) -> any
+	callback: (id: number) -> any
 )
-	local localMemory
-	local bindable
-	local function bindableFire(...)
-		bindable:Fire(...)
-	end
-
-	actor:BindToMessageParallel(`{name}-localmemory`, function(_localMemory)
-		localMemory = _localMemory
-	end)
+	local responsesBuf = create(1024)
+	local ptr = 1
+	local bindable = nil
 
 	actor:BindToMessageParallel(`{name}-bindable`, function(_bindable: BindableEvent)
 		bindable = _bindable
 	end)
 
-	actor:BindToMessageParallel(
-		name,
-		function(
-			startIndex: number,
-			threadCount: number,
-			batchSize: number,
-			...
-		)
-			b(`run instruction {name}`)
+	actor:BindToMessageParallel(name, function(startIndex, threadCount, batchSize, isLastBatch, ...)
+		assert(bindable, "Haven't received bindable yet!")
+		
+		b(`run instruction {name}`)
 
-			b("instruction callbacks")
-			local responses = create(batchSize)
-			for i = startIndex, math.min(startIndex + (batchSize - 1), threadCount) do
-				local res = callback(i, localMemory, ...)
-				insert(responses, if res == nil then true else res)
-			end
-			e()
+		b("instruction callbacks")
+		local lastIndex = min(startIndex + (batchSize - 1), threadCount)
 
-			b("send result")
+		for i = startIndex, lastIndex do
+			local res = callback(i, ...)
+			responsesBuf[ptr] = res == nil or res -- if res is nil, set as true
+			ptr += 1
+		end
+		e()
 
-			bindableFire(startIndex, responses)
-
-			e()
+		if isLastBatch then
+			b("instruction flush")
+			bindable:Fire(startIndex, responsesBuf)
+			clear(responsesBuf)
+			ptr = 1
 			e()
 		end
-	)
+
+		e()
+	end)
 end
 
 Celeris.Coordinator = require(script.coordinator)
-Celeris.Pipeline = require(script.pipeline)
 
 return Celeris
