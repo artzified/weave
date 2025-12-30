@@ -1,17 +1,17 @@
 --!native
 --!optimize 2
 local actor_pool = require("./actor-pool")
-local Instruction = require(script.Parent.instruction)
-local Utils = require(script.Parent.utils)
+local instruction = require("./instruction")
+local utils = require("./utils")
 
-local b, e = Utils.profiling()
+local b, e = utils.profiling()
 
 local Static = {}
 local Coordinator = {}
 
-local InstructionId = 0
+local instructionId = 0
 
-export type Instruction = Instruction.Instruction
+export type Instruction = instruction.Instruction
 
 function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?, populateCallback: ((Actor) -> ())?)
 	local pool = actor_pool.new(actorStorage)
@@ -34,8 +34,7 @@ function Coordinator.CreateInstruction(self: Coordinator, name: string)
 		return existingInstruction
 	end
 
-	local instruction = Instruction.new(self :: never, name)
-
+	local instruction = instruction.new(self :: never, name)
 	self.registeredInstructions[name] = instruction
 
 	return instruction
@@ -52,7 +51,7 @@ function Coordinator.DispatchImmediate(
 	batchSize: number?,
 	...
 )
-	InstructionId += 1
+	instructionId += 1
 	local _batchSize = batchSize or math.max(threadCount // #self.pool.actors, 1)
 
 	local size = (threadCount + _batchSize - 1) // _batchSize

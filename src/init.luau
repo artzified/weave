@@ -1,9 +1,10 @@
 --!native
 --!optimize 2
-local Celeris = {}
-local Utils = require(script.utils)
+local utils = require("@self/utils")
 
-local b: (string) -> (), e = Utils.profiling()
+local Celeris = {}
+
+local b: (string) -> (), e = utils.profiling()
 
 local create = table.create
 local clear = table.clear
@@ -52,6 +53,6 @@ function Celeris.ListenToInstruction(
 	end)
 end
 
-Celeris.Coordinator = require(script.coordinator)
+Celeris.Coordinator = require("@self/coordinator")
 
 return Celeris
