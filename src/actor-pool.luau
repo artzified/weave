@@ -57,7 +57,7 @@ function ActorPool.DispatchBatched(
     end
 end
 
-function ActorPool.SetPopulateCallback(self: ActorPool, callback: (Actor) -> ())
+function ActorPool.OnPopulate(self: ActorPool, callback: (Actor) -> ())
     self.populateCallback = callback
 end
 
