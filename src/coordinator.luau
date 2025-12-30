@@ -1,7 +1,6 @@
 --!native
 --!optimize 2
 local actor_pool = require("./actor-pool")
-local instruction = require("./instruction")
 local utils = require("./utils")
 
 local b, e = utils.profiling()
@@ -9,7 +8,10 @@ local b, e = utils.profiling()
 local Static = {}
 local Coordinator = {}
 
-export type Instruction = instruction.Instruction
+type Instruction = {
+	name: string,
+	bindable: BindableEvent,
+}
 
 function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?, populateCallback: ((Actor) -> ())?)
 	local pool = actor_pool.new(actorStorage)
@@ -23,17 +25,35 @@ function Static.new(worker: Script & LocalScript, actorCount: number, actorStora
 end
 
 --[[ 
-	Creates a new instruction object. An instruction may have the same name under different coordinators without collisions, but not under the same coordinator
+	Creates a new instruction object, yields until all actors have acknowledged it
 ]]
-function Coordinator.CreateInstruction(self: Coordinator, name: string)
+function Coordinator.DefineInstruction(self: Coordinator, name: string): Instruction
 	local existingInstruction = self.registeredInstructions[name]
 	if existingInstruction then
 		warn(`Instruction "{name}" already exists under this coordinator`)
 		return existingInstruction
 	end
 
-	local instruction = instruction.new(self :: never, name)
+	local instruction = {
+		name = name,
+		bindable = Instance.new("BindableEvent"),
+	}
+
+	local readyCount = 0
+	local conn;
+	conn = instruction.bindable.Event:Connect(function()
+		readyCount += 1
+		if readyCount == #self.pool.actors then
+			conn:Disconnect()
+		end
+	end)
+
+	self.pool:DispatchAll(`{name}-handshake`, instruction.bindable)
 	self.registeredInstructions[name] = instruction
+
+	repeat
+		task.wait()
+	until readyCount == #self.pool.actors
 
 	return instruction
 end

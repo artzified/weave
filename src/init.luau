@@ -22,8 +22,9 @@ function Celeris.ListenToInstruction(
 	local ptr = 1
 	local bindable = nil
 
-	actor:BindToMessageParallel(`{name}-bindable`, function(_bindable: BindableEvent)
-		bindable = _bindable
+	actor:BindToMessage(`{name}-handshake`, function(receivedBindable: BindableEvent)
+		bindable = receivedBindable
+		bindable:Fire()
 	end)
 
 	actor:BindToMessageParallel(name, function(startIndex, threadCount, batchSize, isLastBatch, ...)
@@ -51,6 +52,8 @@ function Celeris.ListenToInstruction(
 
 		e()
 	end)
+
+
 end
 
 Celeris.Coordinator = require("@self/coordinator")
