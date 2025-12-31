@@ -1,88 +1,96 @@
 --!native
 --!optimize 2
-local Instruction = require(script.Parent.instruction)
-local Utils = require(script.Parent.utils)
+local actor_pool = require("./actor-pool")
+local utils = require("./utils")
 
-local b, e = Utils.profiling()
+local b, e = utils.profiling()
 
 local Static = {}
 local Coordinator = {}
 
-local InstructionId = 0
+type Instruction = {
+	name: string,
+	bindable: BindableEvent,
+}
 
-export type Instruction = Instruction.Instruction
+function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?, populateCallback: ((Actor) -> ())?)
+	local pool = actor_pool.new(actorStorage)
 
-function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?)
-	local actors = {}
-
-	for _ = 1, actorCount do
-		local actor = Instance.new("Actor")
-		local clone = worker:Clone()
-		clone.Enabled = false
-		clone.Parent = actor
-		clone.Enabled = true
-		actor.Parent = actorStorage or script
-
-		table.insert(actors, actor)
-	end
+	pool:Populate(worker, actorCount)
 
 	return setmetatable({
-		actors = actors,
-		registeredInstructions = {}
+		pool = pool,
+		registeredInstructions = {},
 	}, { __index = Coordinator })
 end
 
---[[
-	Creates a new instruction object. An instruction may have the same name under different coordinators without collisions, but not under the same coordinator
+--[[ 
+	Creates a new instruction object, yields until all actors have acknowledged it
 ]]
-function Coordinator.CreateInstruction(self: Coordinator, name: string, localMemory: {any}?)
+function Coordinator.DefineInstruction(self: Coordinator, name: string): Instruction
 	local existingInstruction = self.registeredInstructions[name]
 	if existingInstruction then
 		warn(`Instruction "{name}" already exists under this coordinator`)
 		return existingInstruction
 	end
-	
-	local instruction = Instruction.new(self :: never, name, localMemory)
 
+	local instruction = {
+		name = name,
+		bindable = Instance.new("BindableEvent"),
+	}
+
+	local readyCount = 0
+	local conn;
+	conn = instruction.bindable.Event:Connect(function()
+		readyCount += 1
+		if readyCount == #self.pool.actors then
+			conn:Disconnect()
+		end
+	end)
+
+	self.pool:DispatchAll(`{name}-handshake`, instruction.bindable)
 	self.registeredInstructions[name] = instruction
+
+	repeat
+		task.wait()
+	until readyCount == #self.pool.actors
 
 	return instruction
 end
 
 --[[
-	Immediately asynchronously dispatches the instruction to the actors, may cause **frame drops** if used heavily
+	Immediately asynchronously dispatches the instruction to the actors
 ]]
 function Coordinator.DispatchImmediate(
 	self: Coordinator,
 	instruction: Instruction,
 	threadCount: number,
-	callback: ((data: {any}) -> ...any)?,
+	callback: ((data: { any }) -> ...any)?,
 	batchSize: number?,
 	...
 )
-	InstructionId += 1
-	local _batchSize = batchSize or math.max(threadCount // #self.actors, 1)
+	local _batchSize = batchSize or math.max(threadCount // #self.pool.actors, 1)
 
-	local size = threadCount // _batchSize
+	local size = (threadCount + _batchSize - 1) // _batchSize
 	local data = table.create(size)
 
 	local count = 0
 	local connection
-	connection = instruction.bindable.Event:Connect(function(index: number, responses: {{any}})
+	connection = instruction.bindable.Event:Connect(function(startIndex: number, responses: { { any } })
 		count += 1
 
-		data[(index-1) // _batchSize + 1] = responses
+		data[(startIndex - 1) // _batchSize + 1] = responses -- flatten spaced out index
 
-		if count == size then
+		if count == #self.pool.actors then
 			connection:Disconnect()
 
-			b('flatten data')
+			b("flatten data")
 
+			-- relatively isn't really a problem
 			local flat = table.create(threadCount)
 			for batchId, batch in data do
-				for lThreadId, thread in batch do
-					table.insert(flat, thread)
-				end
+				local offset = (batchId - 1) * _batchSize
+				table.move(batch, 1, #batch, offset + 1, flat)
 			end
 
 			e()
@@ -93,19 +101,7 @@ function Coordinator.DispatchImmediate(
 		end
 	end)
 
-	b('dispatch actors')
-	local actorIndex = 1
-	for i = 1, threadCount, _batchSize do
-		self.actors[actorIndex]:SendMessage(
-			instruction.name,
-			i,
-			threadCount,
-			_batchSize,
-			...
-		)
-		actorIndex = (actorIndex % #self.actors) + 1
-	end
-	e()
+	self.pool:DispatchBatched(instruction.name, threadCount, _batchSize, ...)
 end
 
 --[[
@@ -115,7 +111,7 @@ function Coordinator.DispatchDeferred(
 	self: Coordinator,
 	instruction: Instruction,
 	threadCount: number,
-	callback: ((data: {any}) -> ...any)?,
+	callback: ((data: { any }) -> ...any)?,
 	batchSize: number?,
 	...
 )
@@ -123,26 +119,12 @@ function Coordinator.DispatchDeferred(
 end
 
 --[[
-	**(ONLY)** Disposes all the actors for cleanup purposes. Each actor will be sent a **`$onDestroy`** message, subsequently deferring the destroying of the actor
+	Destroys the actor pool and subsequently the coordinator.
 ]]
-function Coordinator.Dispose(
-	self: Coordinator
-)
-	for _, actor in self.actors do
-		actor:SendMessage('$onDestroy')
-		task.defer(actor.Destroy, actor)
-	end
-end
+function Coordinator.Destroy(self: Coordinator)
+	self.pool:Destroy()
 
---[[
-	Disposes all the actors and destroys the coordinator. Proxied to use `:Dispose`
-]]
-function Coordinator.Destroy(	
-	self: Coordinator
-)
-	self:Dispose()
-
-	table.clear(self :: never) 	-- type checker wont shut up
+	table.clear(self :: never) -- type checker wont shut up
 end
 
 export type Coordinator = typeof(Static.new(...))
