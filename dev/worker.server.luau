@@ -1,3 +1,5 @@
+--!native 
+--!optimize 2
 local actor = script:GetActor()
 
 if not actor then

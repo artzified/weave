@@ -1,3 +1,5 @@
+--!native
+--!optimize 2
 local types = require("./types")
 local ActorPool = {}
 local Static = {}
