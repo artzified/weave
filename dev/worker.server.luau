@@ -5,8 +5,9 @@ if not actor then
 end
 
 local celeris = require(game.ReplicatedStorage.celeris)
+local data = celeris.GetReadonly("ray")
 
-celeris.ListenToInstruction(actor, "ray", function(id: number)
-	local res = workspace:Raycast(Vector3.zero, -Vector3.yAxis * 1000)
+celeris.ListenToJob(actor, "ray", function(id: number)
+	local res = workspace:Raycast(Vector3.zero, -Vector3.yAxis * data[1])
 	return res
 end)

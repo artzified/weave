@@ -4,72 +4,91 @@ local utils = require("@self/utils")
 
 local Celeris = {}
 
-local b: (string) -> (), e = utils.profiling()
+local b, e = utils.profiling()
 
-local create = table.create
 local clear = table.clear
 local min = math.min
+
+local jobsReadonlyData = {}
+
+local function BindToHandshake(actor: Actor, prefix: string, callback: (...any) -> ())
+	return actor:BindToMessage(`{prefix}-handshake`, function(handshakeBindable: BindableEvent, ...)
+		callback(...)
+		handshakeBindable:Fire()
+	end)
+end
+
+function Celeris.GetReadonly(name: string)
+	local data = jobsReadonlyData[name]
+	if not data then
+		data = {} :: {[number | string]: any}
+		jobsReadonlyData[name] = data
+	end
+	return data
+end
 
 --[[ 
 	Binds to the specified instruction name
 ]]
-function Celeris.ListenToInstruction(
-	actor: Actor,
-	name: string,
-	callback: (id: number) -> any
-)
-	local responsesBuf = create(1024)
-	local startIndicesBuf = create(64)
+function Celeris.ListenToJob(actor: Actor, name: string, callback: (id: number) -> any)
+	local responsesBuf = {}
+	local startIndicesBuf = {}
 	local startindicesPtr = 1
 	local responsesPtr = 1
 	local bindable = nil
 
-	if not actor:GetAttribute('boundActorHandshake') then
-		actor:SetAttribute('boundActorHandshake', true)
-		actor:BindToMessage('$actor-handshake', function(handshakeBindable: BindableEvent)
-			handshakeBindable:Fire()
-		end)
+	if not jobsReadonlyData[name] then
+		jobsReadonlyData[name] = {}
 	end
 
-	actor:BindToMessage(`{name}-handshake`, function(handshakeBindable: BindableEvent, responseBindable: BindableEvent)
-		bindable = responseBindable
-		handshakeBindable:Fire()
+	if not actor:GetAttribute("boundActorHandshake") then
+		actor:SetAttribute("boundActorHandshake", true)
+		BindToHandshake(actor, "$actor", function() end)
+	end
+
+	BindToHandshake(actor, `$readonly-{name}`, function(k: string | number, v: any)
+		jobsReadonlyData[name][k] = v
 	end)
 
-	actor:BindToMessageParallel(name, function(startIndex, threadCount, batchSize, isLastBatch, ...)
-		assert(bindable, "Haven't received bindable yet!")
-		
-		b(`run instruction {name}`)
+	BindToHandshake(actor, name, function(responseBindable: BindableEvent)
+		bindable = responseBindable
+	end)
 
-		startIndicesBuf[startindicesPtr] = startIndex
-		startindicesPtr += 1
+	actor:BindToMessageParallel(
+		name,
+		function(startIndex: number, threadCount: number, batchSize: number, isLastBatch: boolean, ...)
+			assert(bindable, "Haven't received bindable yet!")
 
-		b("instruction callbacks")
-		local lastIndex = min(startIndex + (batchSize - 1), threadCount)
+			b(`run instruction {name}`)
 
-		for i = startIndex, lastIndex do
-			local res = callback(i, ...)
-			responsesBuf[responsesPtr] = res == nil or res -- if res is nil, set as true
-			responsesPtr += 1
-		end
-		e()
+			startIndicesBuf[startindicesPtr] = startIndex
+			startindicesPtr += 1
 
-		if isLastBatch then
-			b("instruction flush")
-			bindable:Fire(responsesBuf, startIndicesBuf)
-			clear(responsesBuf)
-			clear(startIndicesBuf)
-			responsesPtr = 1
-			startindicesPtr = 1
+			b("instruction callbacks")
+			local lastIndex = min(startIndex + (batchSize - 1), threadCount)
+
+			for i = startIndex, lastIndex do
+				local res = callback(i, ...)
+				responsesBuf[responsesPtr] = res == nil or res -- if res is nil, set as true
+				responsesPtr += 1
+			end
+			e()
+
+			if isLastBatch then
+				b("instruction flush")
+				bindable:Fire(responsesBuf, startIndicesBuf)
+				clear(responsesBuf)
+				clear(startIndicesBuf)
+				responsesPtr = 1
+				startindicesPtr = 1
+				e()
+			end
+
 			e()
 		end
-
-		e()
-	end)
-
-
+	)
 end
 
-Celeris.Coordinator = require("@self/coordinator")
+Celeris.Cluster = require("@self/cluster")
 
 return Celeris

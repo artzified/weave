@@ -1,15 +1,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local celeris = require(ReplicatedStorage.celeris)
 
-local coordinator = celeris.Coordinator.new(script.Parent.worker, 8)
-print("created coordinator")
+local cluster = celeris.Cluster.new(script.Parent.worker, 8)
+print("created cluster")
 
-local inst = coordinator:DefineInstruction("ray")
-print("instruction defined")
+local job = cluster:DefineJob("ray"):Linear():SetReadonlyData(1, 10)
+print("job defined")
 
 while task.wait() do
 	local a = os.clock()
-	coordinator:DispatchDeferred(inst, 2048, function(data: { any })
+	job:Dispatch(1024, function(data: { any })
 		print(os.clock() - a)
 	end)
 end
