@@ -19,12 +19,21 @@ function Celeris.ListenToInstruction(
 	callback: (id: number) -> any
 )
 	local responsesBuf = create(1024)
-	local ptr = 1
+	local startIndicesBuf = create(64)
+	local startindicesPtr = 1
+	local responsesPtr = 1
 	local bindable = nil
 
-	actor:BindToMessage(`{name}-handshake`, function(receivedBindable: BindableEvent)
-		bindable = receivedBindable
-		bindable:Fire()
+	if not actor:GetAttribute('boundActorHandshake') then
+		actor:SetAttribute('boundActorHandshake', true)
+		actor:BindToMessage('$actor-handshake', function(handshakeBindable: BindableEvent)
+			handshakeBindable:Fire()
+		end)
+	end
+
+	actor:BindToMessage(`{name}-handshake`, function(handshakeBindable: BindableEvent, responseBindable: BindableEvent)
+		bindable = responseBindable
+		handshakeBindable:Fire()
 	end)
 
 	actor:BindToMessageParallel(name, function(startIndex, threadCount, batchSize, isLastBatch, ...)
@@ -32,21 +41,26 @@ function Celeris.ListenToInstruction(
 		
 		b(`run instruction {name}`)
 
+		startIndicesBuf[startindicesPtr] = startIndex
+		startindicesPtr += 1
+
 		b("instruction callbacks")
 		local lastIndex = min(startIndex + (batchSize - 1), threadCount)
 
 		for i = startIndex, lastIndex do
 			local res = callback(i, ...)
-			responsesBuf[ptr] = res == nil or res -- if res is nil, set as true
-			ptr += 1
+			responsesBuf[responsesPtr] = res == nil or res -- if res is nil, set as true
+			responsesPtr += 1
 		end
 		e()
 
 		if isLastBatch then
 			b("instruction flush")
-			bindable:Fire(startIndex, responsesBuf)
+			bindable:Fire(responsesBuf, startIndicesBuf)
 			clear(responsesBuf)
-			ptr = 1
+			clear(startIndicesBuf)
+			responsesPtr = 1
+			startindicesPtr = 1
 			e()
 		end
 
