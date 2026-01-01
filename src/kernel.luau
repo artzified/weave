@@ -11,7 +11,6 @@ function Static.new(actor: Actor)
 	local self = setmetatable({
 		actor = actor,
 		_resBuf = table.create(2048),
-		_idxBuf = table.create(128),
 		_messenger = nil :: BindableEvent?,
 	}, { __index = Kernel })
 
@@ -24,10 +23,8 @@ end
 
 function Kernel.On(self: self, name: string, process: (id: number, ...any) -> any)
 	local resBuf = self._resBuf
-	local idxBuf = self._idxBuf
-
 	local resPtr = 1
-	local idxPtr = 1
+	local firstStartIndex = 0
 
 	self.actor:BindToMessageParallel(
 		name,
@@ -36,8 +33,9 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 
 			b(`run instruction {name}`)
 
-			idxBuf[idxPtr] = startIndex
-			idxPtr += 1
+			if resPtr == 1 then
+				firstStartIndex = startIndex
+			end
 
 			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
 
@@ -53,10 +51,9 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 			if isLast then -- flush
 				b("flush")
 
-				self._messenger:Fire(reqId, resBuf, idxBuf, batchSize)
+				self._messenger:Fire(reqId, resBuf, firstStartIndex, resPtr - 1)
 
 				resPtr = 1
-				idxPtr = 1
 
 				e()
 			end

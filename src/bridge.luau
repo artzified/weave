@@ -22,7 +22,7 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 	self._pool:DispatchAll("$bridge-messenger", self._messenger)
 
 	self._messenger.Event:Connect(
-		function(reqId: number, responses: { any }, startIndices: { number }, batchSize: number)
+		function(reqId: number, responses: { any }, startIndex: number, totalItems: number)
 			local req = self._registry[reqId]
 			if not req then
 				return
@@ -30,11 +30,7 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 
 			b('put responses to buffer')
 
-			for i, startIndex in startIndices do
-				local sourceStart = (i - 1) * batchSize + 1
-				local stride = math.min(batchSize, #responses - (sourceStart - 1))
-				table.move(responses, sourceStart, sourceStart + stride - 1, startIndex, req.buf)
-			end
+			table.move(responses, 1, totalItems, startIndex, req.buf)
 
 			e()
 
@@ -58,7 +54,7 @@ function Bridge.Send(
 	callback: () -> (),
 	...
 )
-	self._ptr = (self._ptr + 1) % 0xFFFF
+	self._ptr = (self._ptr + 1) % 0xFFFFF
 
 	local reqId = self._ptr
 	local totalBatches = math.ceil(threadCount / batchSize)
