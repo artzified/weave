@@ -1,51 +1,14 @@
 --!native
 --!optimize 2
-local types = require("./types")
 local ActorPool = {}
 local Static = {}
 
-local HANDSHAKE_MAX_TRIES = 10
-local HANDSHAKE_INTERVAL = 0.1
-local HANDSHAKE_TIMEOUT = 1
-
-type self = types.ActorPool
-
-function Static.new(actorStorage: Instance?): self
+function Static.new(actorStorage: Instance?)
 	return setmetatable({
-		actors = {},
+		actors = {} :: {Actor},
 		count = 0,
 		actorStorage = actorStorage or script,
-		populateCallback = nil,
-		handshakeBindable = Instance.new('BindableEvent')
-	}, { __index = ActorPool }) :: self
-end
-
-function ActorPool.DoHandshake(self: self, handshakeName: string, ...)
-	local readyCount = 0
-	local conn: RBXScriptConnection
-	conn = self.handshakeBindable.Event:Connect(function()
-		readyCount += 1
-		if readyCount == self.count then
-			conn:Disconnect()
-		end
-	end)
-
-	for _ = 1, HANDSHAKE_MAX_TRIES do
-		if readyCount == self.count then
-			return
-		end
-		self:DispatchAll(`{handshakeName}-handshake`, self.handshakeBindable, ...)
-		task.wait(HANDSHAKE_INTERVAL)
-	end
-
-	local start = os.clock()
-	while readyCount < self.count and (os.clock() - start) < HANDSHAKE_TIMEOUT do
-		task.wait()
-	end
-
-	if readyCount < self.count then
-		error(`[Celeris::ActorPool] Handshake '{handshakeName}' timeout`)
-	end
+	}, { __index = ActorPool })
 end
 
 function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount: number)
@@ -57,15 +20,10 @@ function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount
 		clone.Enabled = true
 		actor.Parent = self.actorStorage
 
-		if self.populateCallback then
-			self.populateCallback(actor)
-		end
-
 		table.insert(self.actors, actor)
 	end
 
 	self.count = actorCount
-	self:DoHandshake("$actor")
 end
 
 function ActorPool.DispatchAll(self: self, message: string, ...)
@@ -86,16 +44,21 @@ function ActorPool.DispatchBatched(self: self, message: string, threadCount: num
 	end
 end
 
-function ActorPool.OnPopulate(self: self, callback: ((Actor) -> ())?)
-	self.populateCallback = callback
+function ActorPool.WaitForReplication(self: self)
+	for _, actor in self.actors do
+		if not actor:GetAttribute("celeris-ready") then
+			actor:GetAttributeChangedSignal("celeris-ready"):Wait()
+		end
+	end
 end
 
 function ActorPool.Destroy(self: self)
 	for _, actor in self.actors do
 		actor:Destroy()
 	end
-	self.actors = {}
-	self.populateCallback = nil
+	table.clear(self.actors)
 end
+
+type self = typeof(Static.new(...))
 
 return Static
