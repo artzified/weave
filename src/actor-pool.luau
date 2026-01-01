@@ -4,6 +4,7 @@ local Static = {}
 function Static.new(actorStorage: Instance?)
 	return setmetatable({
 		actors = {} :: { Actor },
+		count = 0,
 		actorStorage = actorStorage or script,
 		populateCallback = nil :: ((Actor) -> ())?,
 	}, { __index = ActorPool })
@@ -24,6 +25,8 @@ function ActorPool.Populate(self: ActorPool, worker: Script & LocalScript, actor
 
 		table.insert(self.actors, actor)
 	end
+
+	self.count = actorCount
 end
 
 function ActorPool.DispatchAll(self: ActorPool, message: string, ...)
