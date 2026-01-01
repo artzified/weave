@@ -1,56 +1,37 @@
---!native
---!optimize 2
-local actor_pool = require("./actor-pool")
-local job = require("./job")
-local types = require("./types")
-
+local bridge = require("./bridge")
 local Static = {}
 local Cluster = {}
 
-type self = types.Cluster
-
-function Static.new(
-	worker: Script | LocalScript,
-	actorCount: number,
-	actorStorage: Instance?,
-	populateCallback: ((Actor) -> ())?
-)
-	local pool = actor_pool.new(actorStorage)
-
-	pool:Populate(worker, actorCount)
-
-	local self = setmetatable({
-		pool = pool,
-		registeredJobs = {},
-		handshakeBindable = Instance.new("BindableEvent"),
-	}, { __index = Cluster }) :: self
-
-	return self
+function Static.new(actorCount: number, workerScript: LocalScript | Script)
+	return setmetatable({ _bridge = bridge.new(actorCount, workerScript), _buffers = {} :: {[string]: {any}} }, { __index = Cluster })
 end
 
---[[ 
-	Creates a new instruction object, yields until all actors have acknowledged it
-]]
-function Cluster.DefineJob(self: self, name: string)
-	local existingInstruction = self.registeredJobs[name]
-	if existingInstruction then
-		warn(`Instruction "{name}" already exists under this cluster`)
-		return existingInstruction
+function Cluster.Dispatch(self: self, name: string, threadCount: number, callback: (buf: {any}) -> (), _batchSize: number?, ...)
+	local batchSize = _batchSize or math.ceil(threadCount / self._bridge._pool.count)
+	local buf = self._buffers[name]
+	if not buf then
+		buf = {}
+		self._buffers[name] = buf
 	end
 
-	local job = job.new(name, self.pool)
-	self.registeredJobs[name] = job
+	table.clear(buf)
 
-	return job
+	self._bridge:Send(name, threadCount, batchSize, buf, function()
+		callback(buf)
+	end)
 end
 
---[[
-	Destroys the actor pool and subsequently the Cluster.
-]]
-function Cluster.Destroy(self: self)
-	self.pool:Destroy()
-
-	table.clear(self :: never) -- type checker wont shut up
+function Cluster.DispatchDeferred(
+	self: self,
+	name: string,
+	threadCount: number,
+	callback: (buf: { any }) -> (),
+	_batchSize: number?,
+	...
+)
+	task.defer(self.Dispatch, self, name, threadCount, callback, _batchSize, ...)
 end
+
+type self = typeof(Static.new(...))
 
 return Static
