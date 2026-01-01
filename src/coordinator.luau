@@ -7,6 +7,7 @@ local b, e = utils.profiling()
 
 local HANDSHAKE_MAX_TRIES = 10
 local HANDSHAKE_INTERVAL = 0.1
+local HANDSHAKE_TIMEOUT = 1
 
 local Static = {}
 local Coordinator = {}
@@ -32,35 +33,37 @@ function Static.new(
 		handshakeBindable = Instance.new("BindableEvent"),
 	}, { __index = Coordinator });
 
-	(self :: Coordinator):DoHandshake('$actor-handshake')
+	(self :: Coordinator):DoHandshake("$actor-handshake")
 
 	return self
 end
 
-function Coordinator.DoHandshake(
-	self: Coordinator,
-	message: string, ...
-)
+function Coordinator.DoHandshake(self: Coordinator, message: string, ...)
 	local readyCount = 0
 	local conn
 	conn = self.handshakeBindable.Event:Connect(function()
 		readyCount += 1
-		if readyCount == #self.pool.actors then
+		if readyCount == self.pool.count then
 			conn:Disconnect()
 		end
 	end)
 
 	for _ = 1, HANDSHAKE_MAX_TRIES do
-		if readyCount == #self.pool.actors then
-			break
+		if readyCount == self.pool.count then
+			return
 		end
 		self.pool:DispatchAll(message, self.handshakeBindable, ...)
-		print('dispatched')
+		print("dispatched")
 		task.wait(HANDSHAKE_INTERVAL)
 	end
 
-	while readyCount < #self.pool.actors do
+	local start = os.clock()
+	while readyCount < self.pool.count and (os.clock() - start) < HANDSHAKE_TIMEOUT do
 		task.wait()
+	end
+
+	if readyCount < self.pool.count then
+		error(`[Celeris::Coordinator] Handshake '{message}' timeout`)
 	end
 end
 
@@ -95,18 +98,18 @@ function Coordinator.DispatchImmediate(
 	batchSize: number?,
 	...
 )
-	local _batchSize = batchSize or math.max(threadCount // #self.pool.actors, 1)
+	local _batchSize = batchSize or math.max(threadCount // self.pool.count, 1)
 	local totalBatches = math.ceil(threadCount / _batchSize)
 
 	local data = table.create(threadCount)
-	local expectedSignals = math.min(#self.pool.actors, totalBatches)
+	local expectedSignals = math.min(self.pool.count, totalBatches)
 	local count = 0
 
 	local connection
 	connection = instruction.bindable.Event:Connect(function(responses: { any }, startIndices: { number })
 		count += 1
 
-		b('move responses')
+		b("move responses")
 		for i, startIndex in startIndices do
 			local sourceStart = (i - 1) * _batchSize + 1
 			local stride = math.min(_batchSize, #responses - (sourceStart - 1))
@@ -123,7 +126,7 @@ function Coordinator.DispatchImmediate(
 		end
 	end)
 
-	b('dispatch')
+	b("dispatch")
 	self.pool:DispatchBatched(instruction.name, threadCount, _batchSize, ...)
 	e()
 end
