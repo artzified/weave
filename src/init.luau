@@ -4,7 +4,7 @@ local utils = require("@self/utils")
 
 local Celeris = {}
 
-local b: (string) -> (), e = utils.profiling()
+local b, e = utils.profiling()
 
 local create = table.create
 local clear = table.clear
@@ -36,7 +36,7 @@ function Celeris.ListenToInstruction(
 		handshakeBindable:Fire()
 	end)
 
-	actor:BindToMessageParallel(name, function(startIndex, threadCount, batchSize, isLastBatch, ...)
+	actor:BindToMessageParallel(name, function(startIndex: number, threadCount: number, batchSize: number, isLastBatch: boolean, ...)
 		assert(bindable, "Haven't received bindable yet!")
 		
 		b(`run instruction {name}`)

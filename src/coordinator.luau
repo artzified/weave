@@ -18,7 +18,7 @@ type Instruction = {
 }
 
 function Static.new(
-	worker: Script & LocalScript,
+	worker: Script | LocalScript,
 	actorCount: number,
 	actorStorage: Instance?,
 	populateCallback: ((Actor) -> ())?
@@ -40,7 +40,7 @@ end
 
 function Coordinator.DoHandshake(self: Coordinator, message: string, ...)
 	local readyCount = 0
-	local conn
+	local conn: RBXScriptConnection
 	conn = self.handshakeBindable.Event:Connect(function()
 		readyCount += 1
 		if readyCount == self.pool.count then
