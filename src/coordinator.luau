@@ -5,6 +5,9 @@ local utils = require("./utils")
 
 local b, e = utils.profiling()
 
+local HANDSHAKE_MAX_TRIES = 10
+local HANDSHAKE_INTERVAL = 0.1
+
 local Static = {}
 local Coordinator = {}
 
@@ -13,15 +16,52 @@ type Instruction = {
 	bindable: BindableEvent,
 }
 
-function Static.new(worker: Script & LocalScript, actorCount: number, actorStorage: Instance?, populateCallback: ((Actor) -> ())?)
+function Static.new(
+	worker: Script & LocalScript,
+	actorCount: number,
+	actorStorage: Instance?,
+	populateCallback: ((Actor) -> ())?
+)
 	local pool = actor_pool.new(actorStorage)
 
 	pool:Populate(worker, actorCount)
 
-	return setmetatable({
+	local self = setmetatable({
 		pool = pool,
 		registeredInstructions = {},
-	}, { __index = Coordinator })
+		handshakeBindable = Instance.new("BindableEvent"),
+	}, { __index = Coordinator });
+
+	(self :: Coordinator):DoHandshake('$actor-handshake')
+
+	return self
+end
+
+function Coordinator.DoHandshake(
+	self: Coordinator,
+	message: string, ...
+)
+	local readyCount = 0
+	local conn
+	conn = self.handshakeBindable.Event:Connect(function()
+		readyCount += 1
+		if readyCount == #self.pool.actors then
+			conn:Disconnect()
+		end
+	end)
+
+	for _ = 1, HANDSHAKE_MAX_TRIES do
+		if readyCount == #self.pool.actors then
+			break
+		end
+		self.pool:DispatchAll(message, self.handshakeBindable, ...)
+		print('dispatched')
+		task.wait(HANDSHAKE_INTERVAL)
+	end
+
+	while readyCount < #self.pool.actors do
+		task.wait()
+	end
 end
 
 --[[ 
@@ -38,22 +78,8 @@ function Coordinator.DefineInstruction(self: Coordinator, name: string): Instruc
 		name = name,
 		bindable = Instance.new("BindableEvent"),
 	}
-
-	local readyCount = 0
-	local conn;
-	conn = instruction.bindable.Event:Connect(function()
-		readyCount += 1
-		if readyCount == #self.pool.actors then
-			conn:Disconnect()
-		end
-	end)
-
-	self.pool:DispatchAll(`{name}-handshake`, instruction.bindable)
 	self.registeredInstructions[name] = instruction
-
-	repeat
-		task.wait()
-	until readyCount == #self.pool.actors
+	self:DoHandshake(`{name}-handshake`, instruction.bindable)
 
 	return instruction
 end
