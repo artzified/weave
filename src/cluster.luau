@@ -45,19 +45,6 @@ function Cluster.DefineJob(self: self, name: string)
 end
 
 --[[
-	A deferred proxy to `:DispatchImmediate`. Recommended for intensive rapid tasks to avoid frame drops
-]]
--- function Cluster.DispatchDeferred(
--- 	self: self,
--- 	job: types.Job,
--- 	threadCount: number,
--- 	callback: ((data: { any }) -> ...any)?,
--- 	...
--- )
--- 	task.defer(self.DispatchImmediate, self, job, threadCount, callback, ...)
--- end
-
---[[
 	Destroys the actor pool and subsequently the Cluster.
 ]]
 function Cluster.Destroy(self: self)
