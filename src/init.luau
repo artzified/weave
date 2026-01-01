@@ -69,7 +69,7 @@ function Celeris.ListenToJob(actor: Actor, name: string, callback: (id: number) 
 
 			for i = startIndex, lastIndex do
 				local res = callback(i, ...)
-				responsesBuf[responsesPtr] = res == nil or res -- if res is nil, set as true
+				responsesBuf[responsesPtr] = res
 				responsesPtr += 1
 			end
 			e()
