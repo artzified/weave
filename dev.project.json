@@ -1,10 +1,14 @@
 {
   "name": "celeris-dev",
+  "emitLegacyScripts": false,
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
       "celeris": {
         "$path": "src"
+      },
+      "dev": {
+        "$path": "dev"
       }
     }
   }
