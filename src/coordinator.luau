@@ -70,38 +70,36 @@ function Coordinator.DispatchImmediate(
 	...
 )
 	local _batchSize = batchSize or math.max(threadCount // #self.pool.actors, 1)
+	local totalBatches = math.ceil(threadCount / _batchSize)
 
-	local size = (threadCount + _batchSize - 1) // _batchSize
-	local data = table.create(size)
-
+	local data = table.create(threadCount)
+	local expectedSignals = math.min(#self.pool.actors, totalBatches)
 	local count = 0
+
 	local connection
-	connection = instruction.bindable.Event:Connect(function(startIndex: number, responses: { { any } })
+	connection = instruction.bindable.Event:Connect(function(responses: { any }, startIndices: { number })
 		count += 1
 
-		data[(startIndex - 1) // _batchSize + 1] = responses -- flatten spaced out index
+		b('move responses')
+		for i, startIndex in startIndices do
+			local sourceStart = (i - 1) * _batchSize + 1
+			local stride = math.min(_batchSize, #responses - (sourceStart - 1))
 
-		if count == #self.pool.actors then
+			table.move(responses, sourceStart, sourceStart + stride - 1, startIndex, data)
+		end
+		e()
+
+		if count == expectedSignals then
 			connection:Disconnect()
-
-			b("flatten data")
-
-			-- relatively isn't really a problem
-			local flat = table.create(threadCount)
-			for batchId, batch in data do
-				local offset = (batchId - 1) * _batchSize
-				table.move(batch, 1, #batch, offset + 1, flat)
-			end
-
-			e()
-
 			if callback then
-				callback(flat)
+				callback(data)
 			end
 		end
 	end)
 
+	b('dispatch')
 	self.pool:DispatchBatched(instruction.name, threadCount, _batchSize, ...)
+	e()
 end
 
 --[[
