@@ -1,6 +1,8 @@
-/celeris.rbxlx
+/weave.rbxlx
 
 /*.rbxlx.lock
 /*.rbxl.lock
 
 /sourcemap.json
+luau_packages
+lune_packages

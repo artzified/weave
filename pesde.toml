@@ -1,6 +1,6 @@
-name = "artzified/celeris"
-version = "1.2.0"
-description = "A simple yet fast Parallel Luau Module"
+name = "artzified/weave"
+version = "0.9.0-beta.1"
+description = "A synchronous, job-based parallelism library for Roblox built on Actors and callbacks."
 authors = ["artzified"]
 license = "MIT"
 includes = [
@@ -9,6 +9,7 @@ includes = [
   "LICENSE",
   "src/**/*.luau",
 ]
+repository = "https://github.com/artzified/weave"
 
 [target]
 environment = "roblox"

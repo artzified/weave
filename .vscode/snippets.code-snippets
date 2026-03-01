@@ -26,8 +26,6 @@
 			"\treturn setmetatable({ $1 }, { __index = ${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/} })",
 			"end",
 			"",
-			"type self = typeof(Static.new(...))",
-			"",
 			"return Static"
 		]
 	}

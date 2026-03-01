@@ -1,8 +1,8 @@
---!native
---!optimize 2
-local utils = require("@self/utils")
+local dispatcher = require("@self/dispatcher")
+local kernel = require("@self/kernel")
 
-local Celeris = {}
+export type Dispatcher = dispatcher.self
+export type Kernel = kernel.self
 
 local b, e = utils.profiling()
 
