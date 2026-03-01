@@ -9,6 +9,12 @@
       },
       "tests": {
         "$path": "tests"
+      },
+      "TestEZ": {
+        "$path": "TestEZ"
+      },
+      "benchmark": {
+        "$path": "benchmark"
       }
     }
   }
