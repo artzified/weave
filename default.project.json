@@ -1,7 +1,6 @@
 {
   "name": "weave",
   "tree": {
-    "$className": "DataModel",
     "$path": "src"
   }
 }
