@@ -1,6 +1,6 @@
 --!native
 --!optimize 2
-local constants = require("./constants")
+--!nonstrict
 local ActorPool = {}
 local Static = {}
 
@@ -12,14 +12,14 @@ function Static.new(actorStorage: Instance?)
 	}, { __index = ActorPool })
 end
 
-function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount: number)
+function ActorPool.Populate(self: self, worker: ModuleScript, actorCount: number)
 	for _ = 1, actorCount do
 		local actor = Instance.new("Actor")
 		local clone = worker:Clone()
-		clone.Enabled = false
 		clone.Parent = actor
-		clone.Enabled = true
 		actor.Parent = self.actorStorage
+
+		require(clone)
 
 		table.insert(self.actors, actor)
 	end
@@ -34,23 +34,47 @@ function ActorPool.DispatchAll(self: self, message: string, ...)
 end
 
 function ActorPool.DispatchBatched(self: self, message: string, threadCount: number, batchSize: number, ...)
+	local totalBatches = math.ceil(threadCount / batchSize)
 	local actorCount = #self.actors
-	local actorIndex = 1
-
-	for startIndex = 1, threadCount, batchSize do
-		local isLastForThisActor = (startIndex + (actorCount * batchSize)) > threadCount
-
-		self.actors[actorIndex]:SendMessage(message, startIndex, threadCount, batchSize, isLastForThisActor, ...)
-		actorIndex = (actorIndex % actorCount) + 1
+	if totalBatches == 0 or actorCount == 0 then
+		return 0
 	end
-end
 
-function ActorPool.WaitForReplication(self: self)
-	for _, actor in self.actors do
-		if not actor:GetAttribute(constants.readyAttribute) then
-			actor:GetAttributeChangedSignal(constants.readyAttribute):Wait()
+	local actors = self.actors
+	local tb = totalBatches
+	local ac = actorCount
+	local bs = batchSize
+
+	local base = math.floor(tb / ac)
+	local rem = tb - base * ac
+
+	local usedActors = 0
+	local batchCursor = 1
+
+	for actorIndex = 1, ac do
+		local myBatches = base + (actorIndex <= rem and 1 or 0)
+		if myBatches > 0 then
+			usedActors += 1
+			local startIndex = (batchCursor - 1) * bs + 1
+
+			-- number of items  this actor should process, cap at threadCount to be safe
+			local items = myBatches * bs
+			local remaining = threadCount - startIndex + 1
+			if items > remaining then
+				items = remaining
+			end
+
+			local actor = actors[actorIndex]
+			-- send ONE message for the whole contiguous range; mark isLast=true so actor flushes
+			actor:SendMessage(message, startIndex, threadCount, items, true, ...)
+			batchCursor += myBatches
+			if batchCursor > tb then
+				break
+			end
 		end
 	end
+
+	return usedActors
 end
 
 function ActorPool.Destroy(self: self)
