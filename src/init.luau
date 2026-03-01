@@ -1,6 +1,6 @@
-local cluster = require("@self/cluster")
+local dispatcher = require("@self/dispatcher")
 local kernel = require("@self/kernel")
 return {
-	cluster = cluster;
+	dispatcher = dispatcher;
 	kernel = kernel
 }

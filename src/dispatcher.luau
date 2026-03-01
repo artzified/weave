@@ -1,12 +1,12 @@
 local bridge = require("./bridge")
 local Static = {}
-local Cluster = {}
+local Dispatcher = {}
 
 function Static.new(actorCount: number, workerScript: LocalScript | Script)
-	return setmetatable({ _bridge = bridge.new(actorCount, workerScript), _buffers = {} :: {[string]: {any}} }, { __index = Cluster })
+	return setmetatable({ _bridge = bridge.new(actorCount, workerScript), _buffers = {} :: {[string]: {any}} }, { __index = Dispatcher })
 end
 
-function Cluster.Dispatch(self: self, name: string, threadCount: number, callback: (buf: {any}) -> (), _batchSize: number?, ...)
+function Dispatcher.Dispatch(self: self, name: string, threadCount: number, callback: (buf: {any}) -> (), _batchSize: number?, ...)
 	local batchSize = _batchSize or math.ceil(threadCount / self._bridge._pool.count)
 	local buf = self._buffers[name]
 	if not buf then
@@ -21,7 +21,7 @@ function Cluster.Dispatch(self: self, name: string, threadCount: number, callbac
 	end)
 end
 
-function Cluster.DispatchDeferred(
+function Dispatcher.DispatchDeferred(
 	self: self,
 	name: string,
 	threadCount: number,
