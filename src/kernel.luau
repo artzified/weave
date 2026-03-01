@@ -15,7 +15,7 @@ function Static.new(actor: Actor)
 		_messenger = nil :: BindableEvent?,
 	}, { __index = Kernel })
 
-	actor:BindToMessage("$bridge-messenger", function(bindable: BindableEvent)
+	actor:BindToMessage(constants.messengerBindableSignal, function(bindable: BindableEvent)
 		self._messenger = bindable
 	end)
 
