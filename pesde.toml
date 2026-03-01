@@ -9,6 +9,7 @@ includes = [
   "LICENSE",
   "src/**/*.luau",
 ]
+repository = "https://github.com/artzified/weave"
 
 [target]
 environment = "roblox"
