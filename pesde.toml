@@ -1,5 +1,5 @@
-name = "artzified/celeris"
-version = "1.2.0"
+name = "artzified/weave"
+version = "1.0.0"
 description = "A simple yet fast Parallel Luau Module"
 authors = ["artzified"]
 license = "MIT"

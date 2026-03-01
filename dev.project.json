@@ -1,14 +1,14 @@
 {
-  "name": "celeris-dev",
+  "name": "weave-dev",
   "emitLegacyScripts": false,
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "celeris": {
+      "weave": {
         "$path": "src"
       },
-      "dev": {
-        "$path": "dev"
+      "tests": {
+        "$path": "tests"
       }
     }
   }
