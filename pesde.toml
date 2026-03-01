@@ -1,6 +1,6 @@
 name = "artzified/weave"
-version = "1.0.0"
-description = "A simple yet fast Parallel Luau Module"
+version = "0.9.0-beta.1"
+description = "A synchronous, job-based parallelism library for Roblox built on Actors and callbacks."
 authors = ["artzified"]
 license = "MIT"
 includes = [
