@@ -1,0 +1,353 @@
+<roblox version="4">
+  <Item class="ModuleScript" referent="0">
+    <Properties>
+      <string name="Name">weave</string>
+      <string name="Source"><![CDATA[local dispatcher = require("@self/dispatcher")
+local kernel = require("@self/kernel")
+
+export type Dispatcher = dispatcher.self
+export type Kernel = kernel.self
+
+return {
+	dispatcher = dispatcher,
+	kernel = kernel,
+}
+]]></string>
+    </Properties>
+    <Item class="ModuleScript" referent="1">
+      <Properties>
+        <string name="Name">actor-pool</string>
+        <string name="Source"><![CDATA[--!native
+--!optimize 2
+--!nonstrict
+local constants = require("./constants")
+local ActorPool = {}
+local Static = {}
+
+function Static.new(actorStorage: Instance?)
+	return setmetatable({
+		actors = {} :: {Actor},
+		count = 0,
+		actorStorage = actorStorage or script,
+	}, { __index = ActorPool })
+end
+
+function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount: number)
+	for _ = 1, actorCount do
+		local actor = Instance.new("Actor")
+		local clone = worker:Clone()
+		clone.Enabled = false
+		clone.Parent = actor
+		clone.Enabled = true
+		actor.Parent = self.actorStorage
+
+		table.insert(self.actors, actor)
+	end
+
+	self.count = actorCount
+end
+
+function ActorPool.WaitForReplication(self: self)
+	for _, actor in self.actors do
+		if not actor:GetAttribute(constants.readyAttribute) then
+			actor:GetAttributeChangedSignal(constants.readyAttribute):Wait()
+		end
+	end
+end
+
+function ActorPool.DispatchAll(self: self, message: string, ...)
+	for _, actor in self.actors do
+		actor:SendMessage(message, ...)
+	end
+end
+
+function ActorPool.DispatchBatched(self: self, message: string, threadCount: number, batchSize: number, ...)
+	local totalBatches = math.ceil(threadCount / batchSize)
+	local actorCount = #self.actors
+	if totalBatches == 0 or actorCount == 0 then
+		return 0
+	end
+
+	local actors = self.actors
+	local tb = totalBatches
+	local ac = actorCount
+	local bs = batchSize
+
+	local base = math.floor(tb / ac)
+	local rem = tb - base * ac
+
+	local usedActors = 0
+	local batchCursor = 1
+
+	for actorIndex = 1, ac do
+		local myBatches = base + (actorIndex <= rem and 1 or 0)
+		if myBatches > 0 then
+			usedActors += 1
+			local startIndex = (batchCursor - 1) * bs + 1
+
+			-- number of items  this actor should process, cap at threadCount to be safe
+			local items = myBatches * bs
+			local remaining = threadCount - startIndex + 1
+			if items > remaining then
+				items = remaining
+			end
+
+			local actor = actors[actorIndex]
+			-- send ONE message for the whole contiguous range; mark isLast=true so actor flushes
+			actor:SendMessage(message, startIndex, threadCount, items, true, ...)
+			batchCursor += myBatches
+			if batchCursor > tb then
+				break
+			end
+		end
+	end
+
+	return usedActors
+end
+
+function ActorPool.Destroy(self: self)
+	for _, actor in self.actors do
+		actor:Destroy()
+	end
+	table.clear(self.actors)
+end
+
+type self = typeof(Static.new(...))
+
+return Static
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="2">
+      <Properties>
+        <string name="Name">bridge</string>
+        <string name="Source"><![CDATA[--!native
+--!optimize 2
+local actor_pool = require("./actor-pool")
+local constants = require("./constants")
+local utils = require("./utils")
+
+local Static = {}
+local Bridge = {}
+
+local b, e = utils.profiling()
+
+function Static.new(actorCount: number, workerScript: Script | LocalScript)
+	local self = setmetatable({
+		_pool = actor_pool.new(),
+		_messenger = Instance.new("BindableEvent"),
+		_registry = {} :: { { callback: () -> (), buf: { any }, received: number, expected: number } },
+		_ptr = 0,
+	}, { __index = Bridge })
+
+	self._pool:Populate(workerScript, actorCount)
+	self._pool:WaitForReplication()
+
+	self._pool:DispatchAll(constants.messengerBindableSignal, self._messenger)
+
+	self._messenger.Event:Connect(
+		function(reqId: number, responses: { any }, startIndex: number, totalItems: number)
+			local req = self._registry[reqId]
+			if not req then
+				return
+			end
+
+			assert(req.received <= req.expected)
+
+			b('put responses to buffer')
+
+			table.move(responses, 1, totalItems, startIndex, req.buf)
+
+			e()
+
+			req.received += 1
+			if req.received == req.expected then
+				self._registry[reqId] = nil
+				req.callback()
+			end
+		end
+	)
+
+	return self
+end
+
+function Bridge.Send(
+	self: self,
+	name: string,
+	threadCount: number,
+	batchSize: number,
+	buf: { any },
+	callback: () -> (),
+	...
+)
+	self._ptr = (self._ptr + 1) % 0xFFFFF
+
+	local reqId = self._ptr
+	assert(not self._registry[reqId], "reqId collision")
+
+	local totalBatches = math.ceil(threadCount / batchSize)
+	local usedActors = self._pool:DispatchBatched(name, threadCount, batchSize, reqId, ...)
+
+	local expectedSignals = math.min(usedActors, totalBatches)
+
+	self._registry[reqId] = { callback = callback, buf = buf, received = 0, expected = expectedSignals }
+end
+
+function Bridge.Destroy(self: self)
+	self._messenger:Destroy()
+	self._pool:Destroy()
+	table.clear(self._registry)
+end
+
+type self = typeof(Static.new(...))
+
+return Static
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="3">
+      <Properties>
+        <string name="Name">constants</string>
+        <string name="Source">return {
+	messengerBindableSignal = '$bridge-messenger',
+	readyAttribute = "weave-ready"
+}</string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="4">
+      <Properties>
+        <string name="Name">dispatcher</string>
+        <string name="Source"><![CDATA[local bridge = require("./bridge")
+local Static = {}
+local Dispatcher = {}
+
+function Static.new(actorCount: number, workerScript: LocalScript | Script)
+	return setmetatable({ _bridge = bridge.new(actorCount, workerScript) }, { __index = Dispatcher })
+end
+
+function Dispatcher.Dispatch(self: self, name: string, threadCount: number, callback: (buf: {any}) -> (), _batchSize: number?, ...)
+	local batchSize = _batchSize or math.ceil(threadCount / self._bridge._pool.count)
+	local buf = table.create(threadCount) -- might have to pool buffers to avoid table allocation
+
+	self._bridge:Send(name, threadCount, batchSize, buf, function()
+		callback(buf)
+	end)
+end
+
+function Dispatcher.DispatchDeferred(
+	self: self,
+	name: string,
+	threadCount: number,
+	callback: (buf: { any }) -> (),
+	_batchSize: number?,
+	...
+)
+	task.defer(self.Dispatch, self, name, threadCount, callback, _batchSize, ...)
+end
+
+function Dispatcher.Destroy(self: self)
+	self._bridge:Destroy()
+end
+
+export type self = typeof(Static.new(...))
+
+return Static
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="5">
+      <Properties>
+        <string name="Name">kernel</string>
+        <string name="Source"><![CDATA[--!native
+--!optimize 2
+local constants = require("./constants")
+local utils = require("./utils")
+
+local Static = {}
+local Kernel = {}
+
+local b, e = utils.profiling()
+
+function Static.new(actor: Actor)
+	local self = setmetatable({
+		actor = actor,
+		_resBuf = table.create(2048),
+		_messenger = nil :: BindableEvent?,
+	}, { __index = Kernel })
+
+	actor:BindToMessage(constants.messengerBindableSignal, function(bindable: BindableEvent)
+		self._messenger = bindable
+	end)
+
+	return self
+end
+
+function Kernel.On(self: self, name: string, process: (id: number, ...any) -> any)
+	local resBuf = self._resBuf
+	local resPtr = 1
+	local firstStartIndex = 0
+
+	self.actor:BindToMessageParallel(
+		name,
+		function(startIndex: number, threadCount: number, batchSize: number, isLast: boolean, reqId: number, ...)
+			assert(self._messenger, "Haven't gotten messenger bindable yet!")
+
+			b(`run instruction {name}`)
+
+			if resPtr == 1 then
+				firstStartIndex = startIndex
+			end
+
+			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
+
+			b("run process")
+
+			for i = startIndex, lastIndex do
+				resBuf[resPtr] = process(i, ...)
+				resPtr += 1
+			end
+
+			e()
+
+			if isLast then -- flush
+				b("flush")
+
+				self._messenger:Fire(reqId, resBuf, firstStartIndex, resPtr - 1)
+
+				resPtr = 1
+
+				e()
+			end
+
+			e()
+		end
+	)
+end
+
+function Kernel.Ready(self: self)
+	self.actor:SetAttribute(constants.readyAttribute, true)
+end
+
+export type self = typeof(Static.new(...))
+
+return Static
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="6">
+      <Properties>
+        <string name="Name">utils</string>
+        <string name="Source">local Utils = {}
+Utils.shouldProfile = true;
+
+function Utils.profiling() 
+	if not Utils.shouldProfile then return function(label: string) end, function() end end
+
+	return debug.profilebegin, debug.profileend
+end
+
+return Utils</string>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>
