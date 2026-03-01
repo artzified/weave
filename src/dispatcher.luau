@@ -2,8 +2,8 @@ local bridge = require("./bridge")
 local Static = {}
 local Dispatcher = {}
 
-function Static.new(actorCount: number, workerScript: LocalScript | Script)
-	return setmetatable({ _bridge = bridge.new(actorCount, workerScript), _buffers = {} :: {[string]: {any}} }, { __index = Dispatcher })
+function Static.new(actorCount: number, workerModule: ModuleScript)
+	return setmetatable({ _bridge = bridge.new(actorCount, workerModule), _buffers = {} :: {[string]: {any}} }, { __index = Dispatcher })
 end
 
 function Dispatcher.Dispatch(self: self, name: string, threadCount: number, callback: (buf: {any}) -> (), _batchSize: number?, ...)
@@ -32,6 +32,11 @@ function Dispatcher.DispatchDeferred(
 	task.defer(self.Dispatch, self, name, threadCount, callback, _batchSize, ...)
 end
 
-type self = typeof(Static.new(...))
+function Dispatcher.Destroy(self: self)
+	self._bridge:Destroy()
+	table.clear(self._buffers)
+end
+
+export type self = typeof(Static.new(...))
 
 return Static
