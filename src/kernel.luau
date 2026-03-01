@@ -64,6 +64,10 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 	)
 end
 
+function Kernel.Ready(self: self)
+	self.actor:SetAttribute(constants.readyAttribute, true)
+end
+
 export type self = typeof(Static.new(...))
 
 return Static

@@ -1,3 +1,4 @@
 return {
-	messengerBindableSignal = '$bridge-messenger'
+	messengerBindableSignal = '$bridge-messenger',
+	readyAttribute = "weave-ready"
 }

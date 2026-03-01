@@ -1,6 +1,7 @@
 --!native
 --!optimize 2
 --!nonstrict
+local constants = require("./constants")
 local ActorPool = {}
 local Static = {}
 
@@ -12,19 +13,27 @@ function Static.new(actorStorage: Instance?)
 	}, { __index = ActorPool })
 end
 
-function ActorPool.Populate(self: self, worker: ModuleScript, actorCount: number)
+function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount: number)
 	for _ = 1, actorCount do
 		local actor = Instance.new("Actor")
 		local clone = worker:Clone()
+		clone.Enabled = false
 		clone.Parent = actor
+		clone.Enabled = true
 		actor.Parent = self.actorStorage
-
-		require(clone)
 
 		table.insert(self.actors, actor)
 	end
 
 	self.count = actorCount
+end
+
+function ActorPool.WaitForReplication(self: self)
+	for _, actor in self.actors do
+		if not actor:GetAttribute(constants.readyAttribute) then
+			actor:GetAttributeChangedSignal(constants.readyAttribute):Wait()
+		end
+	end
 end
 
 function ActorPool.DispatchAll(self: self, message: string, ...)

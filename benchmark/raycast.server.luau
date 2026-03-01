@@ -2,9 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 print("requiring celeris")
 local celeris = require(ReplicatedStorage.weave)
 
-print("creating")
 local dispatcher = celeris.dispatcher.new(8, script.Parent.worker)
-print("dispatcher created")
 
 while task.wait() do
 	local start = os.clock()

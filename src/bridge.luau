@@ -9,7 +9,7 @@ local Bridge = {}
 
 local b, e = utils.profiling()
 
-function Static.new(actorCount: number, workerModule: ModuleScript)
+function Static.new(actorCount: number, workerScript: Script | LocalScript)
 	local self = setmetatable({
 		_pool = actor_pool.new(),
 		_messenger = Instance.new("BindableEvent"),
@@ -17,7 +17,8 @@ function Static.new(actorCount: number, workerModule: ModuleScript)
 		_ptr = 0,
 	}, { __index = Bridge })
 
-	self._pool:Populate(workerModule, actorCount)
+	self._pool:Populate(workerScript, actorCount)
+	self._pool:WaitForReplication()
 
 	self._pool:DispatchAll(constants.messengerBindableSignal, self._messenger)
 
