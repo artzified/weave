@@ -1,5 +1,6 @@
 --!native
 --!optimize 2
+local constants = require("./constants")
 local ActorPool = {}
 local Static = {}
 
@@ -46,8 +47,8 @@ end
 
 function ActorPool.WaitForReplication(self: self)
 	for _, actor in self.actors do
-		if not actor:GetAttribute("celeris-ready") then
-			actor:GetAttributeChangedSignal("celeris-ready"):Wait()
+		if not actor:GetAttribute(constants.readyAttribute) then
+			actor:GetAttributeChangedSignal(constants.readyAttribute):Wait()
 		end
 	end
 end

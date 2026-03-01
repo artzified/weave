@@ -1,5 +1,6 @@
 --!native
 --!optimize 2
+local constants = require("./constants")
 local utils = require("./utils")
 
 local Static = {}
@@ -64,7 +65,7 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 end
 
 function Kernel.Ready(self: self)
-	self.actor:SetAttribute("celeris-ready", true)
+	self.actor:SetAttribute(constants.readyAttribute, true)
 end
 
 type self = typeof(Static.new(...))

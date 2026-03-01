@@ -1,6 +1,7 @@
 --!native
 --!optimize 2
 local actor_pool = require("./actor-pool")
+local constants = require("./constants")
 local utils = require("./utils")
 
 local Static = {}
@@ -19,7 +20,7 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 	self._pool:Populate(workerScript, actorCount)
 	self._pool:WaitForReplication()
 
-	self._pool:DispatchAll("$bridge-messenger", self._messenger)
+	self._pool:DispatchAll(constants.messengerBindableSignal, self._messenger)
 
 	self._messenger.Event:Connect(
 		function(reqId: number, responses: { any }, startIndex: number, totalItems: number)
