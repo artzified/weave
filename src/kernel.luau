@@ -68,6 +68,6 @@ function Kernel.Ready(self: self)
 	self.actor:SetAttribute(constants.readyAttribute, true)
 end
 
-type self = typeof(Static.new(...))
+export type self = typeof(Static.new(...))
 
 return Static

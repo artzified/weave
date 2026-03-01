@@ -29,6 +29,8 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 				return
 			end
 
+			assert(req.received <= req.expected)
+
 			b('put responses to buffer')
 
 			table.move(responses, 1, totalItems, startIndex, req.buf)
@@ -58,12 +60,20 @@ function Bridge.Send(
 	self._ptr = (self._ptr + 1) % 0xFFFFF
 
 	local reqId = self._ptr
+	assert(not self._registry[reqId], "reqId collision")
+
 	local totalBatches = math.ceil(threadCount / batchSize)
-	local expectedSignals = math.min(self._pool.count, totalBatches)
+	local usedActors = self._pool:DispatchBatched(name, threadCount, batchSize, reqId, ...)
+
+	local expectedSignals = math.min(usedActors, totalBatches)
 
 	self._registry[reqId] = { callback = callback, buf = buf, received = 0, expected = expectedSignals }
+end
 
-	self._pool:DispatchBatched(name, threadCount, batchSize, reqId, ...)
+function Bridge.Destroy(self: self)
+	self._messenger:Destroy()
+	self._pool:Destroy()
+	table.clear(self._registry)
 end
 
 type self = typeof(Static.new(...))
