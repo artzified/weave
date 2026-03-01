@@ -9,7 +9,7 @@ local Bridge = {}
 
 local b, e = utils.profiling()
 
-function Static.new(actorCount: number, workerScript: Script | LocalScript)
+function Static.new(actorCount: number, workerModule: ModuleScript)
 	local self = setmetatable({
 		_pool = actor_pool.new(),
 		_messenger = Instance.new("BindableEvent"),
@@ -17,8 +17,7 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 		_ptr = 0,
 	}, { __index = Bridge })
 
-	self._pool:Populate(workerScript, actorCount)
-	self._pool:WaitForReplication()
+	self._pool:Populate(workerModule, actorCount)
 
 	self._pool:DispatchAll(constants.messengerBindableSignal, self._messenger)
 
@@ -28,6 +27,8 @@ function Static.new(actorCount: number, workerScript: Script | LocalScript)
 			if not req then
 				return
 			end
+
+			assert(req.received <= req.expected)
 
 			b('put responses to buffer')
 
@@ -58,12 +59,20 @@ function Bridge.Send(
 	self._ptr = (self._ptr + 1) % 0xFFFFF
 
 	local reqId = self._ptr
+	assert(not self._registry[reqId], "reqId collision")
+
 	local totalBatches = math.ceil(threadCount / batchSize)
-	local expectedSignals = math.min(self._pool.count, totalBatches)
+	local usedActors = self._pool:DispatchBatched(name, threadCount, batchSize, reqId, ...)
+
+	local expectedSignals = math.min(usedActors, totalBatches)
 
 	self._registry[reqId] = { callback = callback, buf = buf, received = 0, expected = expectedSignals }
+end
 
-	self._pool:DispatchBatched(name, threadCount, batchSize, reqId, ...)
+function Bridge.Destroy(self: self)
+	self._messenger:Destroy()
+	self._pool:Destroy()
+	table.clear(self._registry)
 end
 
 type self = typeof(Static.new(...))
