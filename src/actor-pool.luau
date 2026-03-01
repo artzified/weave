@@ -13,7 +13,7 @@ function Static.new(actorStorage: Instance?)
 	}, { __index = ActorPool })
 end
 
-function ActorPool.Populate(self: ActorPool, worker: Script | LocalScript, actorCount: number)
+function ActorPool.Populate(self: self, worker: Script | LocalScript, actorCount: number)
 	for _ = 1, actorCount do
 		local actor = Instance.new("Actor")
 		local clone = worker:Clone()
