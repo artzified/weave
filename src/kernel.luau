@@ -32,22 +32,17 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 		function(startIndex: number, threadCount: number, batchSize: number, isLast: boolean, reqId: number, ...)
 			assert(self._messenger, "Haven't gotten messenger bindable yet!")
 
-			b(`run instruction {name}`)
-
 			if resPtr == 1 then
 				firstStartIndex = startIndex
 			end
 
 			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
 
-			b("run process")
-
 			for i = startIndex, lastIndex do
 				resBuf[resPtr] = process(i, ...)
+				task.desynchronize()
 				resPtr += 1
 			end
-
-			e()
 
 			if isLast then -- flush
 				b("flush")
@@ -58,8 +53,6 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 
 				e()
 			end
-
-			e()
 		end
 	)
 end
@@ -69,14 +62,11 @@ function Kernel.OnDetached(self: self, name: string, process: (id: number, ...an
 		name,
 		function(startIndex: number, threadCount: number, batchSize: number, ...)
 			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
-			
-			b("run detached process")
-
+						
 			for i = startIndex, lastIndex do
 				process(i, ...)
+				task.desynchronize()
 			end
-
-			e()
 		end
 	)
 end
