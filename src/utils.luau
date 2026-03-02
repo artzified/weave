@@ -1,5 +1,5 @@
 local Utils = {}
-Utils.shouldProfile = true;
+Utils.shouldProfile = false;
 
 function Utils.profiling() 
 	if not Utils.shouldProfile then return function(label: string) end, function() end end
