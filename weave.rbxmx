@@ -105,6 +105,33 @@ function ActorPool.DispatchBatched(self: self, message: string, threadCount: num
 	return usedActors
 end
 
+function ActorPool.DispatchBatchedDetached(self: self, message: string, threadCount: number, batchSize: number, ...)
+	local totalBatches = math.ceil(threadCount / batchSize)
+	local actorCount = #self.actors
+	if totalBatches == 0 or actorCount == 0 then
+		return
+	end
+
+	local actors = self.actors
+	local base = math.floor(totalBatches / actorCount)
+	local rem = totalBatches - base * actorCount
+	local batchCursor = 1
+
+	for actorIndex = 1, actorCount do
+		local myBatches = base + (actorIndex <= rem and 1 or 0)
+		if myBatches > 0 then
+			local startIndex = (batchCursor - 1) * batchSize + 1
+			local items = math.min(myBatches * batchSize, threadCount - startIndex + 1)
+
+			actors[actorIndex]:SendMessage(message, startIndex, threadCount, items, ...)
+			batchCursor += myBatches
+			if batchCursor > totalBatches then
+				break
+			end
+		end
+	end
+end
+
 function ActorPool.Destroy(self: self)
 	for _, actor in self.actors do
 		actor:Destroy()
@@ -193,6 +220,10 @@ function Bridge.Send(
 	self._registry[reqId] = { callback = callback, buf = buf, received = 0, expected = expectedSignals }
 end
 
+function Bridge.SendDetached(self: self, name: string, threadCount: number, batchSize: number, ...)
+	self._pool:DispatchBatchedDetached(name, threadCount, batchSize, ...)
+end
+
 function Bridge.Destroy(self: self)
 	self._messenger:Destroy()
 	self._pool:Destroy()
@@ -245,6 +276,27 @@ function Dispatcher.DispatchDeferred(
 	task.defer(self.Dispatch, self, name, threadCount, callback, _batchSize, ...)
 end
 
+function Dispatcher.DispatchDetached(
+	self: self, 
+	name: string, 
+	threadCount: number, 
+	_batchSize: number?, 
+	...
+)
+	local batchSize = _batchSize or math.ceil(threadCount / self._bridge._pool.count)
+	self._bridge:SendDetached(name, threadCount, batchSize, ...)
+end
+
+function Dispatcher.DispatchDetachedDeferred(
+	self: self,
+	name: string,
+	threadCount: number,
+	_batchSize: number?,
+	...
+)
+	task.defer(self.DispatchDetached, self, name, threadCount, _batchSize, ...)
+end
+
 function Dispatcher.Destroy(self: self)
 	self._bridge:Destroy()
 end
@@ -292,22 +344,17 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 		function(startIndex: number, threadCount: number, batchSize: number, isLast: boolean, reqId: number, ...)
 			assert(self._messenger, "Haven't gotten messenger bindable yet!")
 
-			b(`run instruction {name}`)
-
 			if resPtr == 1 then
 				firstStartIndex = startIndex
 			end
 
 			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
 
-			b("run process")
-
 			for i = startIndex, lastIndex do
 				resBuf[resPtr] = process(i, ...)
+				task.desynchronize()
 				resPtr += 1
 			end
-
-			e()
 
 			if isLast then -- flush
 				b("flush")
@@ -318,8 +365,20 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 
 				e()
 			end
+		end
+	)
+end
 
-			e()
+function Kernel.OnDetached(self: self, name: string, process: (id: number, ...any) -> ())
+	self.actor:BindToMessageParallel(
+		name,
+		function(startIndex: number, threadCount: number, batchSize: number, ...)
+			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
+						
+			for i = startIndex, lastIndex do
+				process(i, ...)
+				task.desynchronize()
+			end
 		end
 	)
 end
@@ -338,7 +397,7 @@ return Static
       <Properties>
         <string name="Name">utils</string>
         <string name="Source">local Utils = {}
-Utils.shouldProfile = true;
+Utils.shouldProfile = false;
 
 function Utils.profiling() 
 	if not Utils.shouldProfile then return function(label: string) end, function() end end
