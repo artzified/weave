@@ -15,6 +15,9 @@
       },
       "benchmark": {
         "$path": "benchmark"
+      },
+      "examples": {
+        "$path": "examples"
       }
     }
   }
