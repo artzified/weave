@@ -15,7 +15,7 @@ local CHUNK_SIZE: number = 16 -- studs per chunk side
 type ChunkCoord = { x: number, y: number, z: number }
 
 -- The registry tracks every chunk that has been dispatched for generation.
--- We mark a chunk the moment we dispatch it — not when it finishes writing —
+-- We mark a chunk the moment we dispatch it; not when it finishes writing
 -- because WriteVoxels is fire-and-forget and we never want to dispatch twice.
 type ChunkRegistry = { [string]: boolean }
 
