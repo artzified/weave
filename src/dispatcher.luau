@@ -26,6 +26,27 @@ function Dispatcher.DispatchDeferred(
 	task.defer(self.Dispatch, self, name, threadCount, callback, _batchSize, ...)
 end
 
+function Dispatcher.DispatchDetached(
+	self: self, 
+	name: string, 
+	threadCount: number, 
+	_batchSize: number?, 
+	...
+)
+	local batchSize = _batchSize or math.ceil(threadCount / self._bridge._pool.count)
+	self._bridge:SendDetached(name, threadCount, batchSize, ...)
+end
+
+function Dispatcher.DispatchDetachedDeferred(
+	self: self,
+	name: string,
+	threadCount: number,
+	_batchSize: number?,
+	...
+)
+	task.defer(self.DispatchDetached, self, name, threadCount, _batchSize, ...)
+end
+
 function Dispatcher.Destroy(self: self)
 	self._bridge:Destroy()
 end
