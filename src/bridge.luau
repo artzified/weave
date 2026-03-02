@@ -70,6 +70,10 @@ function Bridge.Send(
 	self._registry[reqId] = { callback = callback, buf = buf, received = 0, expected = expectedSignals }
 end
 
+function Bridge.SendDetached(self: self, name: string, threadCount: number, batchSize: number, ...)
+	self._pool:DispatchBatchedDetached(name, threadCount, batchSize, ...)
+end
+
 function Bridge.Destroy(self: self)
 	self._messenger:Destroy()
 	self._pool:Destroy()
