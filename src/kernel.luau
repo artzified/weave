@@ -64,6 +64,23 @@ function Kernel.On(self: self, name: string, process: (id: number, ...any) -> an
 	)
 end
 
+function Kernel.OnDetached(self: self, name: string, process: (id: number, ...any) -> ())
+	self.actor:BindToMessageParallel(
+		name,
+		function(startIndex: number, threadCount: number, batchSize: number, ...)
+			local lastIndex = math.min(startIndex + (batchSize - 1), threadCount)
+			
+			b("run detached process")
+
+			for i = startIndex, lastIndex do
+				process(i, ...)
+			end
+
+			e()
+		end
+	)
+end
+
 function Kernel.Ready(self: self)
 	self.actor:SetAttribute(constants.readyAttribute, true)
 end
