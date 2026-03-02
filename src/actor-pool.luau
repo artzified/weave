@@ -86,6 +86,33 @@ function ActorPool.DispatchBatched(self: self, message: string, threadCount: num
 	return usedActors
 end
 
+function ActorPool.DispatchBatchedDetached(self: self, message: string, threadCount: number, batchSize: number, ...)
+	local totalBatches = math.ceil(threadCount / batchSize)
+	local actorCount = #self.actors
+	if totalBatches == 0 or actorCount == 0 then
+		return
+	end
+
+	local actors = self.actors
+	local base = math.floor(totalBatches / actorCount)
+	local rem = totalBatches - base * actorCount
+	local batchCursor = 1
+
+	for actorIndex = 1, actorCount do
+		local myBatches = base + (actorIndex <= rem and 1 or 0)
+		if myBatches > 0 then
+			local startIndex = (batchCursor - 1) * batchSize + 1
+			local items = math.min(myBatches * batchSize, threadCount - startIndex + 1)
+
+			actors[actorIndex]:SendMessage(message, startIndex, threadCount, items, ...)
+			batchCursor += myBatches
+			if batchCursor > totalBatches then
+				break
+			end
+		end
+	end
+end
+
 function ActorPool.Destroy(self: self)
 	for _, actor in self.actors do
 		actor:Destroy()
