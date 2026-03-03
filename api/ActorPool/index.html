@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="plugin-moonwave plugin-id-moonwave" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.7.0">
+<title data-rh="true">ActorPool | Weave</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://artzified.github.io/weave/api/ActorPool"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docusaurus_tag" content="default"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docsearch:docusaurus_tag" content="default"><meta data-rh="true" property="og:title" content="ActorPool | Weave"><meta data-rh="true" name="description" content="Manages a collection of worker Actors and is responsible
+for distributing work across them.
+
+It handles:
+- Actor creation and lifecycle
+- Worker script cloning and startup
+- Batch-to-actor assignment
+- Message dispatch (tracked and detached)
+
+ActorPool does **not** collect results or track completion; it is a
+low-level scheduling and dispatch component used by [Bridge]."><meta data-rh="true" property="og:description" content="Manages a collection of worker Actors and is responsible
+for distributing work across them.
+
+It handles:
+- Actor creation and lifecycle
+- Worker script cloning and startup
+- Batch-to-actor assignment
+- Message dispatch (tracked and detached)
+
+ActorPool does **not** collect results or track completion; it is a
+low-level scheduling and dispatch component used by [Bridge]."><link data-rh="true" rel="canonical" href="https://artzified.github.io/weave/api/ActorPool"><link data-rh="true" rel="alternate" href="https://artzified.github.io/weave/api/ActorPool" hreflang="en"><link data-rh="true" rel="alternate" href="https://artzified.github.io/weave/api/ActorPool" hreflang="x-default"><link rel="stylesheet" href="/weave/assets/css/styles.942d4779.css">
+<script src="/weave/assets/js/runtime~main.56badfe0.js" defer="defer"></script>
+<script src="/weave/assets/js/main.77b884e3.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<script>!function(){function t(t){document.documentElement.setAttribute("data-theme",t)}var e=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();null!==e?t(e):window.matchMedia("(prefers-color-scheme: dark)").matches?t("dark"):(window.matchMedia("(prefers-color-scheme: light)").matches,t("light"))}(),function(){try{const c=new URLSearchParams(window.location.search).entries();for(var[t,e]of c)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id="__docusaurus"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><nav aria-label="Main" class="navbar navbar--fixed-top"><div class="navbar__inner"><div class="navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/weave/"><b class="navbar__title text--truncate">Weave</b></a><a class="navbar__item navbar__link" href="/weave/docs/intro">Docs</a><a aria-current="page" class="navbar__item navbar__link navbar__link--active" href="/weave/api/">API</a></div><div class="navbar__items navbar__items--right"><a href="https://github.com/artzified/weave" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link">GitHub<svg width="13.5" height="13.5" aria-hidden="true" viewBox="0 0 24 24" class="iconExternalLink_nPIU"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg></a><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="Switch between dark and light mode (currently light mode)" aria-label="Switch between dark and light mode (currently light mode)" aria-live="polite" aria-pressed="false"><svg viewBox="0 0 24 24" width="24" height="24" class="lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" class="darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"><div class="navbar__search"><span aria-label="expand searchbar" role="button" class="search-icon" tabindex="0"></span><input id="search_input_react" type="search" placeholder="Loading..." aria-label="Search" class="navbar__search-input search-bar" disabled=""></div></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="main-wrapper mainWrapper_z2l0 docPageContainer_wNNk"><div class="docPage_Dpn1"><div class="docSidebarContainer_o_re"><div class="sidebar_njMd"><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link menu__link--active" aria-current="page" href="/weave/api/ActorPool">​Actor​Pool</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/weave/api/Bridge">​Bridge</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/weave/api/Dispatcher">​Dispatcher</a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/weave/api/Kernel">​Kernel</a></li></ul></nav></div></div><main class="docMainContainer_HJE1"><div class="container padding-vert--lg"><div class="row"><div class="col docItemCol_MU3C"><div class="docItemContainer_Wv98"><article><div class="member_J0w1 markdown"><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_oUs_"><button type="button" class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><header><h1 class="docTitle_mZRt" style="text-decoration:none"><span style="display:inline-block">Actor</span><span style="display:inline-block">Pool</span></h1><div class="luaClassTags_EipM"><span class="badge_Ba2I" style="color:#9b59b6"><span class="badgeTooltip_cWXP">This item is only intended to be used by the module&#x27;s authors.</span><span class="badgeToolTipTail_H9D_"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#9b59b6" role="img" aria-label="This item is only intended to be used by the module&#x27;s authors."><path d="m49.2 36 14.3 12.7.1-.7c0-6.7-6.1-12.1-13.6-12.1l-.8.1z"></path><path d="M50 27.8c12.5 0 22.7 9 22.7 20.1 0 2.6-.6 5-1.6 7.3L84.4 67c6.9-5 12.3-11.6 15.6-19.1-7.9-17.6-27.3-30.1-50-30.1-6.4 0-12.5 1-18.1 2.8l9.8 8.6c2.6-.8 5.4-1.4 8.3-1.4zM4.5 16.9l10.4 9.2 2.1 1.8C9.5 33.1 3.5 40 0 48c7.9 17.7 27.3 30.2 50 30.2 7 0 13.8-1.2 19.9-3.4l1.9 1.7 13.3 11.7 5.8-5.1-80.6-71.3-5.8 5.1zm25.2 22.2 7 6.2c-.2.8-.3 1.8-.3 2.6C36.4 54.6 42.5 60 50 60c1 0 2-.2 3-.3l7 6.2c-3 1.3-6.4 2.1-10 2.1-12.5 0-22.7-9-22.7-20.1 0-3.1.9-6.1 2.4-8.8z"></path></svg> <!-- -->Private</span></span></div><div>
+<p>
+  Manages a collection of worker Actors and is responsible
+  for distributing work across them.
+</p>
+<p>It handles:</p>
+<ul>
+  <li>Actor creation and lifecycle</li>
+  <li>Worker script cloning and startup</li>
+  <li>Batch-to-actor assignment</li>
+  <li>Message dispatch (tracked and detached)</li>
+</ul>
+<p>
+  ActorPool does <strong>not</strong> collect results or track completion; it is a
+  low-level scheduling and dispatch component used by <a href="/weave/api/Bridge">Bridge</a>.
+</p>
+</div></header><h2 class="anchor anchorWithStickyNavbar_LWe7" id="functions">Functions<a href="#functions" class="hash-link" aria-label="Direct link to Functions" title="Direct link to Functions">​</a></h2><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="Populate"><code style="text-decoration:none">Populate</code><a href="#Populate" class="hash-link" aria-label="Direct link to Populate" title="Direct link to Populate">​</a></h3><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L46"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">Populate</code><code>(</code><div class="inset_uKQm"><div><code>worker<!-- -->: </code><code class="blue_P4bS"><a style="text-decoration:underline;color:inherit" href="https://developer.roblox.com/en-us/api-reference/class/Script" target="_blank" rel="noopener noreferrer">Script<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound" style="color:gray;vertical-align:middle;margin-left:2px"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg></a></code><code class="op_lSLc"> | </code><code class="blue_P4bS"><a style="text-decoration:underline;color:inherit" href="https://developer.roblox.com/en-us/api-reference/class/LocalScript" target="_blank" rel="noopener noreferrer">LocalScript<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound" style="color:gray;vertical-align:middle;margin-left:2px"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg></a></code><code>,</code></div><div><code>actorCount<!-- -->: </code><code class="blue_P4bS">number</code></div></div><code>) → </code><code>(</code><code>)</code></div><div>
+<p>Populates the pool with worker Actors</p>
+<p>Each actor:</p>
+<ul>
+  <li>Is created</li>
+  <li>Receives a cloned worker script</li>
+  <li>Starts the worker script immediately</li>
+</ul>
+</div><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="WaitForReplication"><code style="text-decoration:none">WaitForReplication</code><a href="#WaitForReplication" class="hash-link" aria-label="Direct link to WaitForReplication" title="Direct link to WaitForReplication">​</a></h3><span class="badge_Ba2I" style="color:#f1c40f"><span class="badgeTooltip_cWXP">This is a yielding function. When called, it will pause the Lua thread that called the function until a result is ready to be returned, without interrupting other scripts.</span><span class="badgeToolTipTail_H9D_"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="#f1c40f" role="img" aria-label="This is a yielding function. When called, it will pause the Lua thread that called the function until a result is ready to be returned, without interrupting other scripts."><path d="M96.4 11.9c-1.4-2.5-4-4-6.9-4H10.8c-2.9 0-5.4 1.5-6.9 4-1.4 2.5-1.4 5.5 0 7.9L43.3 88c1.4 2.5 4 4 6.9 4 2.9 0 5.4-1.5 6.9-4l39.3-68.2c1.4-2.4 1.4-5.4 0-7.9zM46.3 54.5c1.1-1.1 2.3-1.6 3.8-1.6s2.8.5 3.8 1.6c1.1 1.1 1.6 2.3 1.6 3.8s-.5 2.8-1.6 3.8c-1.1 1.1-2.3 1.6-3.8 1.6s-2.8-.5-3.8-1.6c-1.1-1.1-1.6-2.3-1.6-3.8.1-1.5.6-2.8 1.6-3.8zm-.5-4.9V21.8h8.8v27.8h-8.8z"></path></svg> <!-- -->Yields</span></span><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L74"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">WaitForReplication</code><code>(</code><code>) → </code><code>(</code><code>)</code></div><div>
+<p>Waits until all workers report readiness.</p>
+<p>
+  This blocks until each Actor sets the ready attribute, which is
+  typically done by calling <code>Kernel:Ready()</code> inside the worker.
+</p>
+<p>
+  This is used to ensure workers are fully initialized before
+  dispatching jobs.
+</p>
+</div><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="DispatchAll"><code style="text-decoration:none">DispatchAll</code><a href="#DispatchAll" class="hash-link" aria-label="Direct link to DispatchAll" title="Direct link to DispatchAll">​</a></h3><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L94"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">DispatchAll</code><code>(</code><div class="inset_uKQm"><div><code>message<!-- -->: </code><code class="blue_P4bS">string</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Message name</p>
+</span></span></div><div><code>...<!-- -->: </code><code class="blue_P4bS">any</code><span class="inlineDescription_G7Er">-- <span>
+<p>Arguments forwarded to all actors</p>
+</span></span></div></div><code>) → </code><code>(</code><code>)</code></div><div>
+<p>Sends a message to all actors.</p>
+<p>
+  This is used for setup or control signals rather than
+  work distribution.
+</p>
+</div><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="DispatchBatched"><code style="text-decoration:none">DispatchBatched</code><a href="#DispatchBatched" class="hash-link" aria-label="Direct link to DispatchBatched" title="Direct link to DispatchBatched">​</a></h3><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L117"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">DispatchBatched</code><code>(</code><div class="inset_uKQm"><div><code>message<!-- -->: </code><code class="blue_P4bS">string</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Job name</p>
+</span></span></div><div><code>threadCount<!-- -->: </code><code class="blue_P4bS">number</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Total logical work items</p>
+</span></span></div><div><code>batchSize<!-- -->: </code><code class="blue_P4bS">number</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Items per batch</p>
+</span></span></div><div><code>...<!-- -->: </code><code class="blue_P4bS">any</code><span class="inlineDescription_G7Er">-- <span>
+<p>Extra arguments forwarded to workers</p>
+</span></span></div></div><code>) → </code><code class="blue_P4bS">number</code><span class="inlineDescription_G7Er">-- <span>
+<p>Number of actors used</p>
+</span></span></div><div>
+<p>Dispatches a <strong>tracked job</strong> in batches across actors.</p>
+<p>
+  Work is divided into contiguous ranges and assigned to actors.
+  Each actor receives at most one message containing a contiguous
+  segment of work and is responsible for flushing results.
+</p>
+<p>Returns the number of actors that were assigned work.</p>
+</div><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="DispatchBatchedDetached"><code style="text-decoration:none">DispatchBatchedDetached</code><a href="#DispatchBatchedDetached" class="hash-link" aria-label="Direct link to DispatchBatchedDetached" title="Direct link to DispatchBatchedDetached">​</a></h3><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L171"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">DispatchBatchedDetached</code><code>(</code><div class="inset_uKQm"><div><code>message<!-- -->: </code><code class="blue_P4bS">string</code><code>,</code></div><div><code>threadCount<!-- -->: </code><code class="blue_P4bS">number</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Total logical work items</p>
+</span></span></div><div><code>batchSize<!-- -->: </code><code class="blue_P4bS">number</code><code>,</code><span class="inlineDescription_G7Er">-- <span>
+<p>Items per batch</p>
+</span></span></div><div><code>...<!-- -->: </code><code class="blue_P4bS">any</code><span class="inlineDescription_G7Er">-- <span>
+<p>Extra arguments forwarded to workers</p>
+</span></span></div></div><code>) → </code><code>(</code><code>)</code></div><div>
+<p>Pretty much the same as <a href="/weave/api/ActorPool#DispatchBatched">ActorPool:DispatchBatched</a> but doesn't return anything</p>
+</div><div class="divider_rE5g"></div><h3 class="anchor anchorWithStickyNavbar_LWe7" id="Destroy"><code style="text-decoration:none">Destroy</code><a href="#Destroy" class="hash-link" aria-label="Direct link to Destroy" title="Direct link to Destroy">​</a></h3><div class="repositoryDetailsContainer_BPdw"><a class="sourceButton_sEho" href="https://github.com/artzified/weave/blob/master/src/actor-pool.luau#L204"><div class="sourceButtonText_Vh0m">&lt;/&gt;</div></a></div><div class="memberString_GwaU"><code>ActorPool<!-- -->:</code><code class="green_DgR4">Destroy</code><code>(</code><code>) → </code><code>(</code><code>)</code></div><div>
+<p>Destroys all actors</p>
+</div></div></article></div><details><summary>Show raw api</summary><pre style="max-width:100%;white-space:pre-wrap">{
+    &quot;functions&quot;: [
+        {
+            &quot;name&quot;: &quot;Populate&quot;,
+            &quot;desc&quot;: &quot;Populates the pool with worker Actors\n\nEach actor:\n- Is created\n- Receives a cloned worker script\n- Starts the worker script immediately&quot;,
+            &quot;params&quot;: [
+                {
+                    &quot;name&quot;: &quot;worker&quot;,
+                    &quot;desc&quot;: &quot;&quot;,
+                    &quot;lua_type&quot;: &quot;Script | LocalScript&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;actorCount&quot;,
+                    &quot;desc&quot;: &quot;&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                }
+            ],
+            &quot;returns&quot;: [],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;source&quot;: {
+                &quot;line&quot;: 46,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        },
+        {
+            &quot;name&quot;: &quot;WaitForReplication&quot;,
+            &quot;desc&quot;: &quot;Waits until all workers report readiness.\n\nThis blocks until each Actor sets the ready attribute, which is\ntypically done by calling `Kernel:Ready()` inside the worker.\n\nThis is used to ensure workers are fully initialized before\ndispatching jobs.&quot;,
+            &quot;params&quot;: [],
+            &quot;returns&quot;: [],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;yields&quot;: true,
+            &quot;source&quot;: {
+                &quot;line&quot;: 74,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        },
+        {
+            &quot;name&quot;: &quot;DispatchAll&quot;,
+            &quot;desc&quot;: &quot;Sends a message to all actors.\n\nThis is used for setup or control signals rather than\nwork distribution.&quot;,
+            &quot;params&quot;: [
+                {
+                    &quot;name&quot;: &quot;message&quot;,
+                    &quot;desc&quot;: &quot;Message name&quot;,
+                    &quot;lua_type&quot;: &quot;string&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;...&quot;,
+                    &quot;desc&quot;: &quot;Arguments forwarded to all actors&quot;,
+                    &quot;lua_type&quot;: &quot;any&quot;
+                }
+            ],
+            &quot;returns&quot;: [],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;source&quot;: {
+                &quot;line&quot;: 94,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        },
+        {
+            &quot;name&quot;: &quot;DispatchBatched&quot;,
+            &quot;desc&quot;: &quot;Dispatches a **tracked job** in batches across actors.\n\nWork is divided into contiguous ranges and assigned to actors.\nEach actor receives at most one message containing a contiguous\nsegment of work and is responsible for flushing results.\n\nReturns the number of actors that were assigned work.&quot;,
+            &quot;params&quot;: [
+                {
+                    &quot;name&quot;: &quot;message&quot;,
+                    &quot;desc&quot;: &quot;Job name&quot;,
+                    &quot;lua_type&quot;: &quot;string&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;threadCount&quot;,
+                    &quot;desc&quot;: &quot;Total logical work items&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;batchSize&quot;,
+                    &quot;desc&quot;: &quot;Items per batch&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;...&quot;,
+                    &quot;desc&quot;: &quot;Extra arguments forwarded to workers&quot;,
+                    &quot;lua_type&quot;: &quot;any&quot;
+                }
+            ],
+            &quot;returns&quot;: [
+                {
+                    &quot;desc&quot;: &quot;Number of actors used&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                }
+            ],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;source&quot;: {
+                &quot;line&quot;: 117,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        },
+        {
+            &quot;name&quot;: &quot;DispatchBatchedDetached&quot;,
+            &quot;desc&quot;: &quot;Pretty much the same as [ActorPool:DispatchBatched] but doesn&#x27;t return anything&quot;,
+            &quot;params&quot;: [
+                {
+                    &quot;name&quot;: &quot;message&quot;,
+                    &quot;desc&quot;: &quot;&quot;,
+                    &quot;lua_type&quot;: &quot;string&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;threadCount&quot;,
+                    &quot;desc&quot;: &quot;Total logical work items&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;batchSize&quot;,
+                    &quot;desc&quot;: &quot;Items per batch&quot;,
+                    &quot;lua_type&quot;: &quot;number&quot;
+                },
+                {
+                    &quot;name&quot;: &quot;...&quot;,
+                    &quot;desc&quot;: &quot;Extra arguments forwarded to workers&quot;,
+                    &quot;lua_type&quot;: &quot;any&quot;
+                }
+            ],
+            &quot;returns&quot;: [],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;source&quot;: {
+                &quot;line&quot;: 171,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        },
+        {
+            &quot;name&quot;: &quot;Destroy&quot;,
+            &quot;desc&quot;: &quot;Destroys all actors&quot;,
+            &quot;params&quot;: [],
+            &quot;returns&quot;: [],
+            &quot;function_type&quot;: &quot;method&quot;,
+            &quot;source&quot;: {
+                &quot;line&quot;: 204,
+                &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+            }
+        }
+    ],
+    &quot;properties&quot;: [],
+    &quot;types&quot;: [],
+    &quot;name&quot;: &quot;ActorPool&quot;,
+    &quot;desc&quot;: &quot;Manages a collection of worker Actors and is responsible\nfor distributing work across them.\n\nIt handles:\n- Actor creation and lifecycle\n- Worker script cloning and startup\n- Batch-to-actor assignment\n- Message dispatch (tracked and detached)\n\nActorPool does **not** collect results or track completion; it is a\nlow-level scheduling and dispatch component used by [Bridge].&quot;,
+    &quot;private&quot;: true,
+    &quot;source&quot;: {
+        &quot;line&quot;: 22,
+        &quot;path&quot;: &quot;src/actor-pool.luau&quot;
+    }
+}</pre></details></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#functions" class="table-of-contents__link toc-highlight">Functions</a><ul><li><a href="#Destroy" class="table-of-contents__link toc-highlight">:Destroy</a></li><li><a href="#DispatchAll" class="table-of-contents__link toc-highlight">:DispatchAll</a></li><li><a href="#DispatchBatched" class="table-of-contents__link toc-highlight">:DispatchBatched</a></li><li><a href="#DispatchBatchedDetached" class="table-of-contents__link toc-highlight">:DispatchBatchedDetached</a></li><li><a href="#Populate" class="table-of-contents__link toc-highlight">:Populate</a></li><li><a href="#WaitForReplication" class="table-of-contents__link toc-highlight">:WaitForReplication</a></li></ul></li></ul></div></div></div></div></main></div></div><footer class="footer footer--dark"><div class="container container-fluid"><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2026 artzified. Built with Moonwave and Docusaurus.</div></div></div></footer></div>
+</body>
+</html>

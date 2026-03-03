@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkdocs=self.webpackChunkdocs||[]).push([[761],{4410:e=>{e.exports=JSON.parse('{"sourceUrl":"https://github.com/artzified/weave/blob/master","baseUrl":"/weave/","classOrder":[],"apiCategories":[]}')}}]);
