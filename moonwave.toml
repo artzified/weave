@@ -1,0 +1,14 @@
+title = "Weave"
+gitRepoUrl = "https://github.com/artzified/weave"
+
+gitSourceBranch = "master"
+changelog = true
+classOrder = []
+
+[docusaurus]
+onBrokenLinks = "throw"
+onBrokenMarkdownLinks = "warn"
+tagline = "All the cores, none of the stress"
+
+[home]
+enabled = true
